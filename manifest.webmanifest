@@ -1,0 +1,25 @@
+{
+  "name": "Dokuma Paneli",
+  "short_name": "Dokuma Panel",
+  "description": "Simteks Dokuma Paneli — kalite masası girişi",
+  "start_url": "./dokuma-mobil.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "icons": [
+    {
+      "src": "./app-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

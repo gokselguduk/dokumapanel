@@ -1,0 +1,74 @@
+DOKUMA PANELİ — KALİTE MASASI GİRİŞİ
+====================================
+
+Dosya: dokuma-mobil.html
+Açılış: bu klasördeki dosyayı tarayıcıda açın
+        (yerel sunucu: node serve.js  →  http://127.0.0.1:8767)
+
+NE İŞE YARAR
+------------
+Daha önce Doku Takip'e Excel'den veya elle girilen dokuma verisi
+artık kalite masasındaki tabletten, mal kaliteden çıkar çıkmaz girilir.
+
+Kullanıcı:
+  • Ürünü arar (ürün adı / renk / ebat / sipariş no / müşteri)
+  • Çıkan topun METRE'sini ve KG / ADET'ini yazar
+  • Kaydet'e basar — her top ayrı satır olur
+  • "Girişler" sekmesinden Düzenle ile miktarı değiştirir ya da kaydı siler
+
+Görünmez: sipariş girişi, depo, sevk, konfeksiyon, planlama, raporlar.
+
+VERİ NEREYE GİDİYOR
+-------------------
+Ayrı bir tablo YOK. Masaüstü ERP'nin Dokuma Takip ekranıyla
+BİREBİR AYNI yere yazılır:
+
+    siparis_akis  →  islem = 'KD_DOKUMA'
+    notlar = { urunler: { <kalem>: { toplam_metre, toplam_kg,
+               toplam_adet, girisler:[ {metre,kg,adet,tarih,user} ] } } }
+
+Bu yüzden panelden girilen bir top anında şurada görünür:
+    • Masaüstü ERP  → Dokuma Takip, Dokuma Depo, Planlama, raporlar
+    • Mobil ERP     → Dokuma Takip, Dokuma Depo
+Aynı şekilde masaüstünden girilen veri de bu panelde görünür.
+
+Panel kayıtları girisler[] içinde  kaynak:"DOKUMA_PANEL"  etiketi taşır;
+"Girişler" sekmesi bu etikete bakarak sadece panel girişlerini listeler.
+
+KİM NE ZAMAN NE YAPTI (denetim izi)
+-----------------------------------
+Her girişte kaydı GİREN kullanıcı ve saati kaydın içinde durur
+(user / tarih / tarih_iso). Sonradan yapılan her değişiklik iki yere yazılır:
+
+  1) Kaydın kendi geçmişi — giris.gecmis[]
+     { tip:"DUZENLE", ts, user, eski:{...}, yeni:{...} }
+     Panelde satırın altında ve masaüstü Giriş Geçmişi'nde görünür.
+
+  2) AYRI denetim satırı — siparis_akis:
+       islem = 'DOKUMA_DUZENLE'  veya  'DOKUMA_SIL'
+       notlar = { user, ts, kalem_idx, gid, eski, yeni,
+                  giris_user, giris_ts, note, kaynak }
+     Kayıt silinince gecmis[] de onunla gider; SİLMENİN izi ancak burada
+     kalır. Masaüstü operasyon günlüğü bu satırları ayrı etiketle gösterir
+     ("Dokuma kaydı silindi" / "Dokuma kaydı düzeltildi").
+
+Aynı iz masaüstü Dokuma Takip ve mobil ERP'deki ✏️/🗑️ düğmeleri için de
+yazılır — hangi programdan değiştirilirse değiştirilsin kim yaptığı bellidir.
+
+notlar JSON'ında üst düzey adet/metre/mt/kg anahtarı KULLANILMAZ (değerler
+eski/yeni içinde durur) — yoksa operasyon günlüğü bunu gerçek üretim miktarı
+sanıp Miktar sütununa basar ve sahte bir üretim satırı gibi görünür.
+
+AYNI ANDA İKİ KULLANICI
+-----------------------
+girisler bir dizi olduğu için "oku → ekle → yaz" arasında başka biri
+yazarsa kayıt kaybolabilirdi. Her giriş benzersiz bir gid taşır:
+yazdıktan sonra tekrar okunup gid'in yerinde durduğu doğrulanır,
+durmuyorsa taze veriyle 3 kez tekrar denenir.
+
+GİRİŞ
+-----
+ERP kullanıcı adı / şifre — DOKUMA_TAKIP yetkisi gerekir
+(Kullanıcı Yönetimi > Yetkiler > Dokuma grubu, ya da "Dokuma" şablonu).
+
+Config: erp-config.js (Supabase) — repoya girmez, sunucuya elle konur.

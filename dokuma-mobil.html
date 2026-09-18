@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dokuma Paneli">
+<meta name="theme-color" content="#0f1117">
+<meta name="description" content="Dokuma Paneli — kalite masası girişi">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" href="./app-icon.png">
+<link rel="apple-touch-icon" href="./app-icon.png">
+<title>Dokuma Paneli · Simteks</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="erp-config.js"></script>
+<style>
+/* Renk paleti konfeksiyon panelinden AYRI tutuldu (turkuaz/teal).
+   İki panel aynı tablette yan yana açılıyor; kullanıcı hangi panelde
+   olduğunu ekrana bakar bakmaz anlamalı. */
+:root{--bg:#0f1117;--surface:#181c27;--surface2:#1e2436;--surface3:#252c3f;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--text2:#9aa3b8;--text3:#5a6280;--accent:#06b6d4;--accent2:#22d3ee;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--cyan:#06b6d4;--violet:#0ea5e9;--pink:#2dd4bf}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;width:100%;max-width:100%;margin:0;touch-action:pan-y}
+#login-screen{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1.5rem;background:radial-gradient(ellipse at 50% 0%,rgba(6,182,212,.15) 0%,transparent 60%)}
+.login-card{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:1.5rem}
+.login-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;margin-top:14px}
+.login-label:first-of-type{margin-top:0}
+.login-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:13px 14px;font-size:15px;outline:none;transition:border-color .2s}
+.login-input:focus{border-color:var(--accent)}
+.login-input::placeholder{color:var(--text3)}
+.login-btn{width:100%;margin-top:1.25rem;background:linear-gradient(135deg,var(--accent),var(--violet));border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;padding:14px;cursor:pointer;transition:opacity .2s,transform .1s}
+.login-btn:active{transform:scale(.98);opacity:.85}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-err{display:none;margin-top:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--red)}
+#topbar{display:none;position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:54px;align-items:center;gap:10px}
+.topbar-title{font-size:14px;font-weight:700;flex:1}
+.logout-btn{background:none;border:1px solid var(--border2);border-radius:8px;color:var(--text3);padding:5px 10px;font-size:11px;cursor:pointer}
+#app{display:none}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;scrollbar-width:none;position:sticky;top:54px;z-index:99}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{flex:1;text-align:center;padding:14px 16px;font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab-btn.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.content{padding:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:10px}
+.card-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.card-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.card-title{font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}
+.card-count{font-size:10px;color:var(--text3);margin-left:auto}
+.siparis-item{padding:13px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;display:flex;align-items:flex-start;gap:10px}
+.siparis-item:last-child{border-bottom:none}
+.siparis-item:active{background:var(--surface2)}
+.siparis-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.siparis-info{flex:1;min-width:0}
+.siparis-no{font-size:13px;font-weight:700;margin-bottom:2px}
+.siparis-firma{font-size:11px;color:var(--text2);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.siparis-tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+.tag-green{background:rgba(16,185,129,.12);color:var(--green)}
+.tag-amber{background:rgba(245,158,11,.12);color:var(--amber)}
+.tag-red{background:rgba(239,68,68,.12);color:var(--red)}
+.tag-blue{background:rgba(6,182,212,.12);color:var(--accent2)}
+.tag-gray{background:rgba(255,255,255,.06);color:var(--text3)}
+.siparis-right{text-align:right;flex-shrink:0}
+.siparis-adet{font-size:16px;font-weight:800}
+.siparis-adet-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+#detay-modal{display:none;position:fixed;inset:0;z-index:200}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal-sheet{position:absolute;bottom:0;left:0;right:0;background:var(--surface);border-radius:22px 22px 0 0;max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;animation:slideUp .3s cubic-bezier(.32,.72,0,1)}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 0}
+.modal-head{padding:14px 16px 10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:10}
+.modal-sno{font-size:17px;font-weight:800;margin-bottom:3px}
+.modal-firma{font-size:12px;color:var(--text2)}
+.modal-tabs{display:flex;gap:5px;padding:10px 14px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:76px;z-index:9}
+.modal-tabs::-webkit-scrollbar{display:none}
+.modal-tab{padding:6px 13px;border-radius:999px;font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;transition:all .2s}
+.modal-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.modal-body{padding:14px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:11px}
+.stat-val{font-size:21px;font-weight:800;line-height:1;margin-bottom:3px}
+.stat-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.info-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border);gap:8px}
+.info-row:last-child{border-bottom:none}
+.info-key{font-size:11px;color:var(--text3);font-weight:600;flex-shrink:0}
+.info-val{font-size:11px;color:var(--text);text-align:right}
+.field-input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 11px;font-size:14px;outline:none;margin-bottom:10px;transition:border-color .2s;font-family:inherit}
+.field-input:focus{border-color:var(--accent)}
+.field-input::placeholder{color:var(--text3);font-size:12px}
+.kpi-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px 8px;text-align:center}
+.kpi-val{font-size:20px;font-weight:800}
+.kpi-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.sec-title{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin-bottom:7px;margin-top:2px}
+.sel-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:10px}
+/* Giriş kartı — kalite masasındaki asıl ekran */
+.gk{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:11px 13px;margin-bottom:8px}
+.gk-ust{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+.gk-sno{font-size:12px;font-weight:800;color:var(--text)}
+.gk-firma{font-size:10px;color:var(--text3);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
+.gk-ad{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;line-height:1.35}
+.gk-say{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;margin-bottom:9px}
+.gk-say-v{font-size:14px;font-weight:800;line-height:1.2}
+.gk-say-l{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.gk-form{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:stretch}
+/* 16px altı yazı tipi iOS'ta odakta sayfayı yakınlaştırıyor */
+.gk-inp{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 6px;font-size:16px;font-weight:700;text-align:center;outline:none;width:100%;font-family:inherit}
+.gk-inp:focus{border-color:var(--accent);background:var(--surface3)}
+.gk-inp::placeholder{font-size:11px;font-weight:600;color:var(--text3)}
+.gk-btn{background:var(--accent);border:none;border-radius:8px;color:#fff;padding:0 18px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.gk-btn:disabled{opacity:.5;cursor:not-allowed}
+.gk-son{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border2);font-size:10px;color:var(--text3)}
+.gk-son-geri{margin-left:auto;background:none;border:1px solid var(--border2);border-radius:6px;color:var(--amber);font-size:10px;font-weight:700;padding:4px 9px;cursor:pointer}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:10px;color:var(--text3)}
+.spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
+.empty .icon{font-size:30px;margin-bottom:8px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;z-index:9999;display:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+#toast.show{display:block;animation:toastIn .15s ease}
+#toast.toast-ok{background:rgba(16,185,129,.15);border:1px solid var(--green);color:var(--green)}
+#toast.toast-err{background:rgba(239,68,68,.15);border:1px solid var(--red);color:var(--red)}
+#toast.toast-info{background:var(--surface3);border:1px solid var(--border2);color:var(--text2)}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.vg-item{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:10px 12px;margin-bottom:7px}
+.vg-ust{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.vg-miktar{font-size:13px;font-weight:800;color:var(--accent2)}
+.vg-meta{font-size:10px;color:var(--text3);margin-left:auto;text-align:right}
+
+@media (max-width: 480px){
+  #topbar{padding:0 10px;height:50px;gap:6px}
+  .tab-bar{top:50px}
+  /* Sekmeler flex:1 ile eşit üçe bölünüyor; dar ekranda "Kalite Girişi"
+     kutusuna sığmıyordu — harf aralığını ve yazıyı küçült. */
+  .tab-btn{padding:13px 4px;font-size:10px;letter-spacing:0}
+  .content{padding:10px}
+  .card-head{padding:10px 11px}
+  .siparis-item{padding:10px 11px;gap:8px}
+  .siparis-no{font-size:12px}
+  .siparis-firma{font-size:10px}
+  .kpi-row{grid-template-columns:1fr 1fr 1fr;gap:5px}
+  .kpi-val{font-size:17px}
+  .modal-sheet{max-height:96dvh}
+  .modal-head{padding:10px 12px 8px}
+  .modal-tabs{top:64px;padding:8px 10px}
+  .modal-body{padding:10px}
+  .stat-grid{grid-template-columns:1fr}
+  #toast{max-width:92vw;white-space:normal;text-align:center}
+}
+@media (max-width: 360px){
+  .topbar-title{font-size:12px}
+  .logout-btn{padding:4px 8px;font-size:10px}
+  .tag{font-size:8px;padding:2px 6px}
+  .gk-form{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
+  .gk-btn{grid-column:1/3;padding:11px}
+}
+/* Tablet (kalite masasındaki asıl cihaz) */
+@media (min-width: 700px){
+  body{max-width:none;margin:0}
+  #topbar{padding:0 20px}
+  .tab-btn{padding:15px 18px;font-size:13px}
+  .content{padding:18px}
+  .login-card{max-width:520px}
+  .gk-inp{font-size:18px;padding:12px 8px}
+  .gk-btn{padding:0 26px;font-size:13px}
+}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:2rem">
+    <img src="https://simtekstekstil.com.tr/resimler/logo.png" alt="Simteks Logo"
+      style="height:60px;max-width:220px;object-fit:contain;margin-bottom:16px;filter:brightness(0) invert(1) drop-shadow(0 4px 16px rgba(6,182,212,0.3))">
+    <div style="font-size:12px;font-weight:900;letter-spacing:6px;color:var(--text);text-transform:uppercase;text-align:center;line-height:1.6">
+      DOKUMA PANELİ
+    </div>
+    <div style="font-size:10px;color:var(--text3);letter-spacing:2px;margin-top:6px">KALİTE MASASI GİRİŞİ</div>
+    <div style="width:48px;height:2px;background:linear-gradient(90deg,var(--accent),var(--violet));border-radius:2px;margin-top:10px"></div>
+  </div>
+  <div class="login-card">
+    <label class="login-label">Kullanıcı Adı</label>
+    <input id="l-user" class="login-input" type="text" placeholder="kullanici" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('l-pass').focus()">
+    <label class="login-label">Şifre</label>
+    <input id="l-pass" class="login-input" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Giriş Yap</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<div id="topbar">
+  <img src="https://simtekstekstil.com.tr/resimler/logo.png" alt="Simteks"
+    style="height:28px;max-width:100px;object-fit:contain;flex-shrink:0;filter:brightness(0) invert(1)">
+  <div style="width:1px;height:18px;background:var(--border2);flex-shrink:0"></div>
+  <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:var(--text);text-transform:uppercase;flex:1">DOKUMA</div>
+  <div style="font-size:11px;color:var(--text3);flex:1;text-align:right" id="user-info"></div>
+  <button class="logout-btn" onclick="doLogout()">Çıkış</button>
+</div>
+
+<div id="app">
+  <div class="tab-bar" id="main-tab-bar">
+    <button class="tab-btn" onclick="switchTab('giris',0)">🧵 Kalite Girişi</button>
+    <button class="tab-btn" onclick="switchTab('siparisler',1)">📋 Siparişler</button>
+    <button class="tab-btn" onclick="switchTab('girisler',2)">📝 Girişler</button>
+  </div>
+
+  <div id="tab-giris" class="content">
+    <div class="sel-card">
+      <div class="sec-title" style="margin-bottom:7px">Top Girişi</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:9px;line-height:1.45">
+        Kaliteden çıkan topun ürününü arayın, <strong>metresini</strong> ve
+        <strong style="color:var(--accent2)">kg / adedini</strong> yazıp <strong>Kaydet</strong>'e basın.
+        Her top ayrı satır olarak kaydedilir; veri anında ana programda ve mobilde görünür.
+      </div>
+      <div style="position:relative">
+        <input id="ua-arama" class="field-input" placeholder="🔍 Ürün adı, renk, ebat, sipariş no veya müşteri…" oninput="urunAraDegisti()" style="margin-bottom:0;font-size:14px;padding-right:34px">
+        <button type="button" onclick="aramaInputTemizle('ua-arama')" title="Temizle" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border:none;background:var(--surface2);border-radius:50%;color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0">✕</button>
+      </div>
+    </div>
+    <div id="ua-sonuc-area">
+      <div class="empty"><div class="icon">🔍</div>Aramak için yukarıya yazın</div>
+    </div>
+  </div>
+
+  <div id="tab-siparisler" class="content" style="display:none">
+    <div class="kpi-row" id="kpi-row"></div>
+    <div style="position:relative;margin-bottom:10px">
+      <input id="sip-arama" class="field-input" placeholder="🔍 Sipariş no, müşteri veya ürün ara…" oninput="sipListeAramaDegisti()" style="margin-bottom:0;font-size:13px;padding-right:34px">
+      <button type="button" onclick="aramaInputTemizle('sip-arama')" title="Temizle" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border:none;background:var(--surface2);border-radius:50%;color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0">✕</button>
+    </div>
+    <div class="card" id="siparis-liste-card">
+      <div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>
+    </div>
+  </div>
+
+  <div id="tab-girisler" class="content" style="display:none">
+    <div class="sel-card">
+      <div class="sec-title" style="margin-bottom:7px">Panel Girişleri</div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.45">
+        Bu panelden yapılmış son dokuma girişleri — en yeni üstte. Her satırda
+        kaydı <strong>kimin, ne zaman</strong> girdiği yazar.
+        <strong>Düzenle</strong> ile miktarı değiştirebilir ya da kaydı silebilirsiniz;
+        yapılan her değişiklik adınız ve saatinizle kayda geçer ve ana programın
+        operasyon günlüğünde görünür.
+      </div>
+    </div>
+    <div id="vg-liste-area">
+      <div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="detay-modal">
+  <div class="modal-backdrop" onclick="closeModal()"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-sno" id="m-sno">—</div>
+      <div class="modal-firma" id="m-firma">—</div>
+      <div style="display:flex;gap:5px;margin-top:7px;flex-wrap:wrap" id="m-tags"></div>
+    </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="modalTab('ozet',this)">Özet</button>
+      <button class="modal-tab" onclick="modalTab('kalemler',this)">Kalemler</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<button id="yenile-btn" type="button" onclick="manuelYenile()" title="Yenile" style="display:none;position:fixed;bottom:18px;right:18px;width:50px;height:50px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:20px;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer;z-index:500;align-items:center;justify-content:center">🔄</button>
+
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   DOKUMA PANELİ — kalite masası girişi
+
+   TEK TOPLANMA NOKTASI
+   Bu panel veriyi masaüstü ERP'nin (Dokuma Takip) yazdığı YERE yazar:
+     siparis_akis satırı → islem='KD_DOKUMA', kalem_ad='KD_DOKUMA'
+     notlar = { urunler: { <kalemIdx>: {
+                  toplam_metre, toplam_kg, toplam_adet,
+                  girisler:[{metre,kg,adet,tarih,tarih_iso,user,...}] } } }
+   Ayrı bir tablo/alan YOK. Buradan girilen top masaüstünde Dokuma Takip,
+   Dokuma Depo, Planlama ve raporlarda; mobil ERP'de de aynı anda görünür.
+   Karşılığı masaüstünde: dtKaydetKalemler() (src/stok/js/05-dokuma-ops.js)
+   ═══════════════════════════════════════════════════════════════════ */
+
+const KD_TIP='KD_DOKUMA';
+const KAYNAK='DOKUMA_PANEL';
+let sb=null,currentUser=null,siparisler=[],selectedSiparis=null;
+let kdCache={},kdCacheTs={};
+let aktifFilter='HEPSI',dokunanIds=new Set();
+const KD_TTL_MS=15000;
+const UI_STATE_KEY='dokuma_ui_state';
+const SESSION_KEY='dokuma_session';
+
+function readUiState(){
+  try{return JSON.parse(localStorage.getItem(UI_STATE_KEY)||'{}')||{};}catch{return {};}
+}
+function writeUiState(patch){
+  try{localStorage.setItem(UI_STATE_KEY,JSON.stringify({...readUiState(),...patch,updated_at:Date.now()}));}catch{}
+}
+
+function initSB(){
+  const c=window.__ERP_SUPABASE;
+  if(!c||!c.url||!c.anonKey){showErr('erp-config.js yapılandırılmamış.');return false;}
+  sb=supabase.createClient(c.url.trim(),c.anonKey.trim());
+  return true;
+}
+
+/** onclick / insert için: tam sayı id ise number, aksi halde olduğu gibi (UUID vb.) */
+function coerceSiparisIdForDb(id){
+  const s=String(id??'').trim();
+  if(/^\d+$/.test(s)){const n=parseInt(s,10);return Number.isSafeInteger(n)?n:s;}
+  return id;
+}
+
+function normText(v){
+  return String(v||'').toLowerCase()
+    .replaceAll('ı','i').replaceAll('İ','i').replaceAll('ğ','g')
+    .replaceAll('ü','u').replaceAll('ş','s').replaceAll('ö','o').replaceAll('ç','c')
+    .replace(/[^a-z0-9]+/g,' ').trim();
+}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+function parseKalemler(s){try{const c=s?.cins;if(!c)return[];const p=typeof c==='string'?JSON.parse(c):c;return Array.isArray(p)?p:[];}catch{return[];}}
+function parseSno(s){const m=String(s||'').toUpperCase().match(/(\d+)$/);return m?+m[1]:0;}
+function compareSno(a,b){return parseSno(a)-parseSno(b);}
+function kullaniciAdi(){return String(currentUser?.display_name||currentUser?.username||'').trim();}
+
+/** Sayı biçimi: 1234.5 → "1.234,5" (gereksiz sıfır yok) */
+function fmt(n,basamak){
+  const v=parseFloat(n)||0;
+  const b=Number.isFinite(basamak)?basamak:(Math.abs(v%1)>0.0001?1:0);
+  return v.toLocaleString('tr-TR',{minimumFractionDigits:b,maximumFractionDigits:b});
+}
+/** "12,5" / "12.5" / "10+2,5" → 12.5   (Excel'den kopyala-yapıştır alışkanlığı) */
+function sayiOku(raw){
+  const s=String(raw??'').trim();
+  if(!s)return 0;
+  const tek=x=>{const v=parseFloat(String(x||'').trim().replaceAll(',','.'));return Number.isFinite(v)?v:0;};
+  if(!s.includes('+'))return tek(s);
+  return s.split('+').map(tek).reduce((a,b)=>a+b,0);
+}
+
+/* ── Sipariş birimi ───────────────────────────────────────────────
+   Masaüstüyle birebir aynı kural (dtKalemIkinciBirimTip):
+   kalem birimi MT veya KG ise ikinci birim KG, aksi halde ADET.   */
+function siparisKalemBirim(k){
+  const u=String(k?.birim||'ADET').toUpperCase();
+  return (u==='MT'||u==='KG')?u:'ADET';
+}
+function ikinciBirimTip(k){
+  const b=siparisKalemBirim(k);
+  return (b==='KG'||b==='MT')?'KG':'ADET';
+}
+function ikinciBirimEtiket(k){return ikinciBirimTip(k)==='KG'?'kg':'adet';}
+
+/* ── Oturum / giriş ─────────────────────────────────────────────── */
+async function doLogin(){
+  const u=document.getElementById('l-user').value.trim();
+  const p=document.getElementById('l-pass').value;
+  const btn=document.getElementById('login-btn');
+  document.getElementById('login-err').style.display='none';
+  if(!u||!p){showLoginErr('Kullanıcı adı ve şifre giriniz.');return;}
+  if(!sb){showLoginErr('Supabase bağlantısı kurulamadı.');return;}
+  btn.disabled=true;btn.textContent='Giriş yapılıyor…';
+  try{
+    const{data,error}=await sb.rpc('erp_login',{p_username:u,p_password:p});
+    if(error)throw error;
+    let result=data;
+    if(typeof result==='string'){try{result=JSON.parse(result);}catch{}}
+    if(!result||result.ok===false){showLoginErr(result?.err||'Kullanıcı adı veya şifre yanlış.');btn.disabled=false;btn.textContent='Giriş Yap';return;}
+    const user=result.user||result;
+    if(!user||!user.username){showLoginErr('Giriş başarısız.');btn.disabled=false;btn.textContent='Giriş Yap';return;}
+    const allowed=normalizeAllowed(user.allowed_modes);
+    const isAdmin=String(user.role||'').toLowerCase()==='admin';
+    /* Ana programdaki yetki kodu ile aynı: Dokuma grubu → DOKUMA_TAKIP */
+    if(!isAdmin&&!allowed.includes('DOKUMA_TAKIP')){showLoginErr('Dokuma yetkisi yok.');btn.disabled=false;btn.textContent='Giriş Yap';return;}
+    currentUser={...user,allowed};
+    localStorage.setItem(SESSION_KEY,JSON.stringify({user:currentUser,ts:Date.now()}));
+    startApp();
+  }catch(e){showLoginErr('Bağlantı hatası: '+(e.message||e));btn.disabled=false;btn.textContent='Giriş Yap';}
+}
+function normalizeAllowed(r){if(!r)return[];if(Array.isArray(r))return r;try{const j=JSON.parse(r);return Array.isArray(j)?j:[];}catch{return[];}}
+function showLoginErr(m){const el=document.getElementById('login-err');el.textContent=m;el.style.display='block';}
+function showErr(m){document.getElementById('login-screen').innerHTML+=`<div style="margin-top:20px;padding:14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;color:#ef4444;font-size:13px;max-width:340px;text-align:center">${esc(m)}</div>`;}
+function doLogout(){
+  localStorage.removeItem(SESSION_KEY);localStorage.removeItem(UI_STATE_KEY);
+  currentUser=null;siparisler=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('topbar').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  const yb=document.getElementById('yenile-btn');if(yb)yb.style.display='none';
+}
+function tryRestoreSession(){
+  try{
+    const r=localStorage.getItem(SESSION_KEY);if(!r)return false;
+    const s=JSON.parse(r);if(!s.user||!s.ts)return false;
+    if(Date.now()-s.ts>8*60*60*1000){localStorage.removeItem(SESSION_KEY);return false;}
+    currentUser=s.user;return true;
+  }catch{return false;}
+}
+
+async function startApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('app').style.display='block';
+  document.getElementById('user-info').textContent=kullaniciAdi();
+  const yb=document.getElementById('yenile-btn');if(yb)yb.style.display='flex';
+  await loadSiparisler();
+  const st=readUiState();
+  const tab=['giris','siparisler','girisler'].includes(st?.activeTab)?st.activeTab:'giris';
+  switchTab(tab);
+  const ara=document.getElementById('ua-arama');
+  if(ara&&tab==='giris')setTimeout(()=>ara.focus(),120);
+}
+
+/* ── Sipariş listesi ─────────────────────────────────────────────── */
+async function loadSiparisler(){
+  try{
+    /* Masaüstü Dokuma Takip ile aynı kapsam: TAMAMLANDI dışındaki tüm siparişler.
+       Dokuma her üretim yerine (Simteks / fason / doğrudan sevk) çalışabildiği için
+       konfeksiyon panelindeki uretim_yeri süzgeci burada UYGULANMAZ. */
+    const gizli=['TAMAMLANDI','İPTAL'];
+    const[sipRes,akisRes]=await Promise.all([
+      sb.from('siparisler')
+        .select('id,created_at,sno,firma,starih,ttarih,notlar,durum,cins,miktar,musteri,uretim_yeri,updated_at')
+        .order('created_at',{ascending:false}),
+      sb.from('siparis_akis').select('siparis_id').eq('islem',KD_TIP)
+    ]);
+    if(sipRes.error)throw sipRes.error;
+    siparisler=(sipRes.data||[]).filter(s=>!gizli.includes(String(s.durum||'').toUpperCase().trim()));
+    dokunanIds=new Set();
+    (akisRes.data||[]).forEach(r=>dokunanIds.add(String(r.siparis_id)));
+    _uaHaystackCache.clear();_sipHaystackCache.clear();
+    renderSiparisler();
+  }catch(e){
+    document.getElementById('siparis-liste-card').innerHTML=`<div class="empty"><div class="icon">⚠️</div>Yüklenemedi: ${esc(e.message||e)}</div>`;
+  }
+}
+
+let _sipHaystackCache=new Map();
+function sipHaystack(sip){
+  let h=_sipHaystackCache.get(sip.id);
+  if(h===undefined){
+    const p=parseKalemler(sip).flatMap(k=>[k.ad,k.kod,k.renk,k.ebat,k.olcu]);
+    h=normText([sip.sno,sip.firma,sip.musteri,...p].join(' '));
+    _sipHaystackCache.set(sip.id,h);
+  }
+  return h;
+}
+let _sipAramaDebounce=null;
+function sipListeAramaDegisti(){clearTimeout(_sipAramaDebounce);_sipAramaDebounce=setTimeout(renderSiparisler,200);}
+function kpiFiltrele(f){
+  aktifFilter=f;
+  document.querySelectorAll('.kpi-box').forEach((b,i)=>{
+    b.style.border=['HEPSI','DOKUNAN','BEKLEYEN'][i]===f?'1px solid var(--accent)':'1px solid var(--border)';
+  });
+  renderSiparisler();
+  switchTab('siparisler',1);
+}
+function aramaInputTemizle(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.value='';
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.focus();
+}
+
+function renderSiparisler(){
+  let liste=[...siparisler];
+  if(aktifFilter==='DOKUNAN')liste=liste.filter(s=>dokunanIds.has(String(s.id)));
+  else if(aktifFilter==='BEKLEYEN')liste=liste.filter(s=>!dokunanIds.has(String(s.id)));
+  const parts=normText(document.getElementById('sip-arama')?.value||'').split(' ').filter(Boolean);
+  if(parts.length)liste=liste.filter(s=>parts.every(p=>sipHaystack(s).includes(p)));
+  liste.sort((a,b)=>compareSno(a.sno,b.sno));
+
+  const dokunan=siparisler.filter(s=>dokunanIds.has(String(s.id)));
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="kpi-box" onclick="kpiFiltrele('HEPSI')" style="cursor:pointer">
+      <div class="kpi-val" style="color:var(--accent2)">${siparisler.length}</div>
+      <div class="kpi-lbl">Toplam</div>
+    </div>
+    <div class="kpi-box" onclick="kpiFiltrele('DOKUNAN')" style="cursor:pointer">
+      <div class="kpi-val" style="color:var(--green)">${dokunan.length}</div>
+      <div class="kpi-lbl">Dokuması Başlamış</div>
+    </div>
+    <div class="kpi-box" onclick="kpiFiltrele('BEKLEYEN')" style="cursor:pointer">
+      <div class="kpi-val" style="color:var(--amber)">${siparisler.length-dokunan.length}</div>
+      <div class="kpi-lbl">Hiç Giriş Yok</div>
+    </div>`;
+
+  if(!liste.length){document.getElementById('siparis-liste-card').innerHTML=`<div class="empty"><div class="icon">📭</div>Sipariş bulunamadı</div>`;return;}
+  const baslik=aktifFilter==='DOKUNAN'?'Dokuması Başlamış':aktifFilter==='BEKLEYEN'?'Girişi Olmayan':'Tüm Siparişler';
+  let html=`<div class="card-head"><div class="card-dot" style="background:var(--accent)"></div><div class="card-title">${baslik}</div><div class="card-count">${liste.length} sipariş</div></div>`;
+  liste.forEach(s=>{html+=sipItem(s);});
+  document.getElementById('siparis-liste-card').innerHTML=html;
+}
+
+function sipItem(s){
+  const k=parseKalemler(s);
+  const ozet=k.slice(0,2).map(x=>x.ad||x.kod||'').filter(Boolean).join(', ')+(k.length>2?` +${k.length-2}`:'');
+  const durum=String(s.durum||'BEKLEMEDE');
+  const girisVar=dokunanIds.has(String(s.id));
+  const termin=String(s.ttarih||'').slice(0,10);
+  return `<div class="siparis-item" onclick="openSiparis('${esc(String(s.id))}')">
+    <div class="siparis-dot" style="background:${girisVar?'var(--green)':'var(--amber)'}"></div>
+    <div class="siparis-info">
+      <div class="siparis-no">${esc(s.sno||s.id)}</div>
+      <div class="siparis-firma">${esc(s.firma||s.musteri||'—')}</div>
+      <div class="siparis-tags">
+        <span class="tag ${girisVar?'tag-green':'tag-gray'}">${girisVar?'Giriş var':'Giriş yok'}</span>
+        <span class="tag tag-blue">${esc(durum)}</span>
+        ${termin?`<span class="tag tag-gray">${esc(termin)}</span>`:''}
+      </div>
+    </div>
+    <div class="siparis-right">
+      <div class="siparis-adet" style="color:var(--text2)">${k.length}</div>
+      <div class="siparis-adet-label">kalem</div>
+    </div>
+  </div>`;
+}
+
+/* ── Sipariş detay modalı ────────────────────────────────────────── */
+function openSiparis(id){
+  selectedSiparis=siparisler.find(s=>String(s.id)===String(id));
+  if(!selectedSiparis)return;
+  document.getElementById('m-sno').textContent=selectedSiparis.sno||selectedSiparis.id;
+  document.getElementById('m-firma').textContent=selectedSiparis.firma||selectedSiparis.musteri||'—';
+  document.getElementById('m-tags').innerHTML=`<span class="tag tag-blue">${esc(String(selectedSiparis.durum||'BEKLEMEDE'))}</span>`;
+  document.querySelectorAll('.modal-tab').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('detay-modal').style.display='block';
+  renderModalTab('ozet');
+}
+function closeModal(){document.getElementById('detay-modal').style.display='none';selectedSiparis=null;}
+function modalTab(t,el){document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderModalTab(t);}
+
+async function renderModalTab(t){
+  const body=document.getElementById('modal-body');
+  const s=selectedSiparis;
+  if(!s){body.innerHTML='';return;}
+  body.innerHTML=`<div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>`;
+  const kd=await getKd(s.id,KD_TIP);
+  const kalemler=parseKalemler(s);
+  const urunler=kd?.urunler||{};
+  if(t==='ozet'){
+    let tM=0,tK=0,tA=0;
+    Object.values(urunler).forEach(u=>{
+      tM+=parseFloat(u?.toplam_metre)||0;
+      tK+=parseFloat(u?.toplam_kg)||0;
+      tA+=parseInt(u?.toplam_adet,10)||0;
+    });
+    const girisSayisi=Object.values(urunler).reduce((a,u)=>a+((u?.girisler||[]).length),0);
+    body.innerHTML=`
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-val" style="color:var(--accent2)">${fmt(tM,1)}</div><div class="stat-lbl">Toplam Metre</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:var(--green)">${tK>0?fmt(tK,1):fmt(tA,0)}</div><div class="stat-lbl">${tK>0?'Toplam KG':'Toplam Adet'}</div></div>
+      </div>
+      <div class="info-row"><div class="info-key">Sipariş No</div><div class="info-val">${esc(s.sno||'—')}</div></div>
+      <div class="info-row"><div class="info-key">Müşteri</div><div class="info-val">${esc(s.firma||s.musteri||'—')}</div></div>
+      <div class="info-row"><div class="info-key">Durum</div><div class="info-val">${esc(String(s.durum||'BEKLEMEDE'))}</div></div>
+      <div class="info-row"><div class="info-key">Sipariş Tarihi</div><div class="info-val">${esc(String(s.starih||'').slice(0,10)||'—')}</div></div>
+      <div class="info-row"><div class="info-key">Termin</div><div class="info-val">${esc(String(s.ttarih||'').slice(0,10)||'—')}</div></div>
+      <div class="info-row"><div class="info-key">Kalem sayısı</div><div class="info-val">${kalemler.length}</div></div>
+      <div class="info-row"><div class="info-key">Dokuma giriş satırı</div><div class="info-val">${girisSayisi}</div></div>`;
+    return;
+  }
+  if(!kalemler.length){body.innerHTML=`<div class="empty"><div class="icon">📭</div>Sipariş kalemi yok</div>`;return;}
+  body.innerHTML=kalemler.map((k,i)=>{
+    const u=urunler[i]||{};
+    const o=kalemOzet(k,u);
+    return `<div class="gk" style="margin-bottom:8px">
+      <div class="gk-ad">${esc([k.ad||k.kod||('Kalem '+(i+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · '))}</div>
+      <div class="gk-say">
+        <div><div class="gk-say-v">${fmt(o.hedef,0)} <span style="font-size:9px;font-weight:600;color:var(--text3)">${esc(o.hedefBirim)}</span></div><div class="gk-say-l">Sipariş</div></div>
+        <div><div class="gk-say-v" style="color:var(--accent2)">${fmt(o.metre,1)} <span style="font-size:9px;font-weight:600;opacity:.7">m</span></div><div class="gk-say-l">Dokunan metre</div></div>
+        <div><div class="gk-say-v" style="color:var(--green)">${fmt(o.ikinci,o.ikinciTip==='KG'?1:0)} <span style="font-size:9px;font-weight:600;opacity:.7">${esc(o.ikinciEtiket)}</span></div><div class="gk-say-l">Dokunan</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── KD_DOKUMA okuma ─────────────────────────────────────────────── */
+/** Masaüstündeki sbKdGet ile aynı seçim: kalem_ad boş ya da tip olan en yeni satır. */
+function kdSatirlardanSec(rows){
+  const uygun=(rows||[]).filter(r=>!r?.kalem_ad||String(r.kalem_ad)===KD_TIP);
+  for(const r of uygun){
+    try{const v=JSON.parse(r?.notlar||'{}');if(v&&typeof v==='object'&&!Array.isArray(v))return v;}catch{}
+  }
+  return {};
+}
+
+async function getKd(id,tip,forceFresh){
+  const key=tip+'_'+id;
+  if(!forceFresh&&kdCache[key]!==undefined&&(Date.now()-(kdCacheTs[key]||0))<KD_TTL_MS)return kdCache[key];
+  try{
+    const{data,error}=await sb.from('siparis_akis')
+      .select('id,kalem_ad,notlar,created_at').eq('siparis_id',id).eq('islem',tip)
+      .order('created_at',{ascending:false}).limit(20);
+    if(error)throw error;
+    const v=kdSatirlardanSec(data);
+    kdCache[key]=v;kdCacheTs[key]=Date.now();
+    return v;
+  }catch(e){console.warn('getKd',e.message||e);return{};}
+}
+
+/** Arama sonucundaki 10-40 sipariş için tek tek istek yerine TEK sorgu. */
+async function getKdBatch(ids,tip){
+  const now=Date.now();
+  const eksik=[...new Set((ids||[]).map(String))].filter(id=>{
+    const key=tip+'_'+id;
+    return kdCache[key]===undefined||(now-(kdCacheTs[key]||0))>=KD_TTL_MS;
+  });
+  if(!eksik.length)return;
+  try{
+    const{data,error}=await sb.from('siparis_akis')
+      .select('siparis_id,kalem_ad,notlar,created_at').in('siparis_id',eksik).eq('islem',tip)
+      .order('created_at',{ascending:false});
+    if(error)throw error;
+    const grup=new Map();
+    (data||[]).forEach(r=>{
+      const sid=String(r.siparis_id);
+      if(!grup.has(sid))grup.set(sid,[]);
+      grup.get(sid).push(r);
+    });
+    eksik.forEach(id=>{
+      kdCache[tip+'_'+id]=kdSatirlardanSec(grup.get(id)||[]);
+      kdCacheTs[tip+'_'+id]=now;
+    });
+  }catch(e){console.warn('getKdBatch',e.message||e);}
+}
+
+/* ── KD_DOKUMA yazma (çakışmaya karşı korumalı) ──────────────────── */
+/* Aynı KD satırına 4 taraf yazabiliyor: bu panelin 2 kullanıcısı, masaüstü
+   Dokuma Takip ve mobil ERP. "girisler" bir DİZİ olduğu için "oku → ekle →
+   yaz" arasına başka bir yazma girerse o topun kaydı sessizce kaybolur.
+   Bu yüzden her giriş benzersiz bir gid taşır: yazdıktan sonra tekrar okunup
+   gid'in gerçekten durduğu doğrulanır; durmuyorsa TAZE veriyle tekrar denenir.
+   Toplamlar asla girisler'den yeniden hesaplanmaz — eski kayıtlarda girisler
+   dizisi boş olup toplamı dolu satırlar var, yeniden hesap onları silerdi. */
+const YAZMA_DENEME=3;
+
+async function kdDokumaOkuTaze(siparisId){
+  const{data,error}=await sb.from('siparis_akis')
+    .select('id,kalem_ad,notlar,created_at').eq('siparis_id',siparisId).eq('islem',KD_TIP)
+    .order('created_at',{ascending:false}).limit(20);
+  if(error)throw error;
+  const rows=data||[];
+  return {kd:kdSatirlardanSec(rows),satirVar:rows.length>0};
+}
+
+async function kdDokumaYaz(siparisId,kd,satirVar){
+  const json=JSON.stringify(kd);
+  if(satirVar){
+    /* Masaüstündeki sbKdSet gibi: aynı tipteki TÜM satırlar senkronlanır,
+       böylece mükerrer satırlar birbirinden ayrışmaz. */
+    const{error}=await sb.from('siparis_akis')
+      .update({notlar:json,kalem_ad:KD_TIP,miktar:0})
+      .eq('siparis_id',siparisId).eq('islem',KD_TIP);
+    if(error)throw error;
+  }else{
+    const{error}=await sb.from('siparis_akis')
+      .insert([{siparis_id:coerceSiparisIdForDb(siparisId),islem:KD_TIP,kalem_ad:KD_TIP,miktar:0,notlar:json}]);
+    if(error)throw error;
+  }
+}
+
+function kdOnbellegeYaz(siparisId,kd){
+  kdCache[KD_TIP+'_'+siparisId]=kd;
+  kdCacheTs[KD_TIP+'_'+siparisId]=Date.now();
+}
+
+/** Tek top ekler. Başarılıysa yazılan giriş nesnesini döner. */
+async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet){
+  const now=new Date();
+  const kullanici=kullaniciAdi();
+  const gid='dp-'+now.getTime().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+  /* Alan adları masaüstündeki dtKaydetKalemler ile birebir aynı olmalı;
+     ek alanlar (kaynak, gid) diğer programlarda görmezden gelinir. */
+  const giris={
+    metre:metre||null,
+    kg:kg||null,
+    adet:adet||null,
+    tarih:now.toLocaleString('tr-TR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    tarih_iso:now.toISOString(),
+    kaynak:KAYNAK,
+    gid,
+    ...(kullanici?{user:kullanici,kullanici}:{})
+  };
+  let sonHata=null;
+  for(let deneme=0;deneme<YAZMA_DENEME;deneme++){
+    let taze;
+    try{taze=await kdDokumaOkuTaze(siparisId);}catch(e){sonHata=e;continue;}
+    const kd=taze.kd||{};
+    if(!kd.urunler)kd.urunler={};
+    if(!kd.urunler[kalemIdx])kd.urunler[kalemIdx]={toplam_metre:0,toplam_kg:0,toplam_adet:0,girisler:[]};
+    const u=kd.urunler[kalemIdx];
+    if(!Array.isArray(u.girisler))u.girisler=[];
+    /* Önceki denemede yazılmış ve yerinde duruyorsa ikinci kez ekleme. */
+    if(u.girisler.some(g=>g&&g.gid===gid)){kdOnbellegeYaz(siparisId,kd);return giris;}
+    u.girisler.push(giris);
+    u.toplam_metre=(parseFloat(u.toplam_metre)||0)+metre;
+    u.toplam_kg=(parseFloat(u.toplam_kg)||0)+kg;
+    u.toplam_adet=(parseInt(u.toplam_adet,10)||0)+adet;
+    try{await kdDokumaYaz(siparisId,kd,taze.satirVar);}catch(e){sonHata=e;continue;}
+    let kontrol;
+    try{kontrol=await kdDokumaOkuTaze(siparisId);}catch(e){sonHata=e;continue;}
+    const yerinde=(kontrol.kd?.urunler?.[kalemIdx]?.girisler||[]).some(g=>g&&g.gid===gid);
+    if(yerinde){kdOnbellegeYaz(siparisId,kontrol.kd);dokunanIds.add(String(siparisId));return giris;}
+    sonHata=new Error('Kayıt doğrulanamadı (başka bir cihaz aynı anda yazdı)');
+  }
+  throw sonHata||new Error('Kayıt yapılamadı');
+}
+
+/* ── Denetim izi ──────────────────────────────────────────────────
+   "Kim, ne zaman, neyi değiştirdi/sildi" iki yerde birden tutulur:
+
+   1) Kaydın KENDİ geçmişi — giris.gecmis[] : düzenlemeler kaydın üstünde
+      taşınır, panelde satırın altında görünür.
+   2) AYRI denetim satırı — siparis_akis(islem='DOKUMA_DUZENLE'|'DOKUMA_SIL').
+      Kayıt silinince gecmis[] de onunla gider; silinmenin izi ancak bu ayrı
+      satırda kalır. Masaüstü operasyon günlüğü bu satırları gösterir.
+
+   Denetim satırının notlar JSON'ında üst düzey adet/metre/mt/kg ANAHTARI
+   KULLANILMAZ (değerler eski/yeni içinde durur) — yoksa masaüstündeki
+   siparisOpMiktarMetin onları gerçek üretim miktarı sanıp Miktar sütununa
+   basar ve sahte bir üretim satırı gibi görünür. */
+const DOKUMA_DENETIM_ISLEM={DUZENLE:'DOKUMA_DUZENLE',SIL:'DOKUMA_SIL'};
+
+function girisMiktarOzeti(g){
+  const p=[];
+  const m=parseFloat(g?.metre||0)||0;
+  const k=parseFloat(g?.kg||0)||0;
+  const a=parseInt(g?.adet||0,10)||0;
+  if(m)p.push(fmt(m,1)+' m');
+  if(k)p.push(fmt(k,1)+' kg');
+  if(a)p.push(fmt(a,0)+' adet');
+  return p.join(' · ')||'—';
+}
+
+/** Denetim satırı yazar. Hata olursa asıl işlemi düşürmez, sadece uyarır. */
+async function dokumaDenetimYaz(tip,ctx){
+  try{
+    const kullanici=kullaniciAdi()||'—';
+    const not=tip===DOKUMA_DENETIM_ISLEM.SIL
+      ? `Dokuma kaydı silindi · ${girisMiktarOzeti(ctx.eski)} · giren: ${ctx.girisUser||'—'} (${ctx.girisTarih||'—'})`
+      : `Dokuma kaydı düzeltildi · ${girisMiktarOzeti(ctx.eski)} → ${girisMiktarOzeti(ctx.yeni)} · giren: ${ctx.girisUser||'—'} (${ctx.girisTarih||'—'})`;
+    await sb.from('siparis_akis').insert([{
+      siparis_id:coerceSiparisIdForDb(ctx.siparisId),
+      islem:tip,
+      kalem_ad:ctx.kalemAd||'Dokuma',
+      miktar:0,
+      notlar:JSON.stringify({
+        kaynak:KAYNAK,
+        user:kullanici,kullanici,
+        ts:new Date().toISOString(),
+        kalem_idx:ctx.kalemIdx,
+        gid:ctx.gid,
+        eski:{metre:parseFloat(ctx.eski?.metre||0)||0,kg:parseFloat(ctx.eski?.kg||0)||0,adet:parseInt(ctx.eski?.adet||0,10)||0},
+        yeni:ctx.yeni?{metre:parseFloat(ctx.yeni.metre||0)||0,kg:parseFloat(ctx.yeni.kg||0)||0,adet:parseInt(ctx.yeni.adet||0,10)||0}:null,
+        giris_user:ctx.girisUser||'',
+        giris_ts:ctx.girisTarihIso||'',
+        note:not
+      })
+    }]);
+  }catch(e){
+    console.warn('denetim satırı yazılamadı',e.message||e);
+    showToast('⚠ İşlem yapıldı ama denetim kaydı yazılamadı',3200);
+  }
+}
+
+/** Yanlış girilen topu siler — gid ile, toplamlardan da düşerek. */
+async function dokumaGirisSil(siparisId,kalemIdx,gid,kalemAd){
+  let sonHata=null;
+  for(let deneme=0;deneme<YAZMA_DENEME;deneme++){
+    let taze;
+    try{taze=await kdDokumaOkuTaze(siparisId);}catch(e){sonHata=e;continue;}
+    const kd=taze.kd||{};
+    const u=kd?.urunler?.[kalemIdx];
+    const idx=(u?.girisler||[]).findIndex(g=>g&&g.gid===gid);
+    if(idx<0){kdOnbellegeYaz(siparisId,kd);return false;} // zaten silinmiş
+    const g=u.girisler[idx];
+    const m=parseFloat(g.metre||0)||0;
+    const k=parseFloat(g.kg||0)||0;
+    const a=parseInt(g.adet||0,10)||0;
+    u.girisler.splice(idx,1);
+    u.toplam_metre=Math.max(0,(parseFloat(u.toplam_metre)||0)-m);
+    u.toplam_kg=Math.max(0,(parseFloat(u.toplam_kg)||0)-k);
+    u.toplam_adet=Math.max(0,(parseInt(u.toplam_adet,10)||0)-a);
+    try{await kdDokumaYaz(siparisId,kd,taze.satirVar);}catch(e){sonHata=e;continue;}
+    let kontrol;
+    try{kontrol=await kdDokumaOkuTaze(siparisId);}catch(e){sonHata=e;continue;}
+    const halaVar=(kontrol.kd?.urunler?.[kalemIdx]?.girisler||[]).some(x=>x&&x.gid===gid);
+    if(!halaVar){
+      kdOnbellegeYaz(siparisId,kontrol.kd);
+      /* Kayıt gitti — silindiğinin izi artık yalnız denetim satırında. */
+      await dokumaDenetimYaz(DOKUMA_DENETIM_ISLEM.SIL,{
+        siparisId,kalemIdx,gid,kalemAd,
+        eski:{metre:m,kg:k,adet:a},yeni:null,
+        girisUser:g.user||g.kullanici||'',girisTarih:g.tarih||'',girisTarihIso:g.tarih_iso||''
+      });
+      return true;
+    }
+    sonHata=new Error('Silme doğrulanamadı (başka bir cihaz aynı anda yazdı)');
+  }
+  throw sonHata||new Error('Silinemedi');
+}
+
+/** Girilen topun metre/kg/adet değerlerini değiştirir; toplamları farkla düzeltir. */
+async function dokumaGirisGuncelle(siparisId,kalemIdx,gid,yeniDeger,kalemAd){
+  const yMetre=parseFloat(yeniDeger.metre)||0;
+  const yKg=parseFloat(yeniDeger.kg)||0;
+  const yAdet=parseInt(yeniDeger.adet,10)||0;
+  let sonHata=null;
+  for(let deneme=0;deneme<YAZMA_DENEME;deneme++){
+    let taze;
+    try{taze=await kdDokumaOkuTaze(siparisId);}catch(e){sonHata=e;continue;}
+    const kd=taze.kd||{};
+    const u=kd?.urunler?.[kalemIdx];
+    const idx=(u?.girisler||[]).findIndex(g=>g&&g.gid===gid);
+    if(idx<0)throw new Error('Kayıt bulunamadı — başka biri silmiş olabilir.');
+    const g=u.girisler[idx];
+    const eskiM=parseFloat(g.metre||0)||0;
+    const eskiK=parseFloat(g.kg||0)||0;
+    const eskiA=parseInt(g.adet||0,10)||0;
+    if(eskiM===yMetre&&eskiK===yKg&&eskiA===yAdet){kdOnbellegeYaz(siparisId,kd);return false;}
+    const damga={
+      tip:'DUZENLE',
+      ts:new Date().toISOString(),
+      user:kullaniciAdi()||'—',
+      eski:{metre:eskiM,kg:eskiK,adet:eskiA},
+      yeni:{metre:yMetre,kg:yKg,adet:yAdet}
+    };
+    const yeniGiris={
+      ...g,
+      metre:yMetre||null,kg:yKg||null,adet:yAdet||null,
+      gecmis:[...(Array.isArray(g.gecmis)?g.gecmis:[]),damga]
+    };
+    u.girisler[idx]=yeniGiris;
+    u.toplam_metre=Math.max(0,(parseFloat(u.toplam_metre)||0)-eskiM+yMetre);
+    u.toplam_kg=Math.max(0,(parseFloat(u.toplam_kg)||0)-eskiK+yKg);
+    u.toplam_adet=Math.max(0,(parseInt(u.toplam_adet,10)||0)-eskiA+yAdet);
+    try{await kdDokumaYaz(siparisId,kd,taze.satirVar);}catch(e){sonHata=e;continue;}
+    let kontrol;
+    try{kontrol=await kdDokumaOkuTaze(siparisId);}catch(e){sonHata=e;continue;}
+    const yazilan=(kontrol.kd?.urunler?.[kalemIdx]?.girisler||[]).find(x=>x&&x.gid===gid);
+    const oldu=yazilan&&(parseFloat(yazilan.metre||0)||0)===yMetre
+      &&(parseFloat(yazilan.kg||0)||0)===yKg&&(parseInt(yazilan.adet||0,10)||0)===yAdet;
+    if(oldu){
+      kdOnbellegeYaz(siparisId,kontrol.kd);
+      await dokumaDenetimYaz(DOKUMA_DENETIM_ISLEM.DUZENLE,{
+        siparisId,kalemIdx,gid,kalemAd,
+        eski:damga.eski,yeni:damga.yeni,
+        girisUser:g.user||g.kullanici||'',girisTarih:g.tarih||'',girisTarihIso:g.tarih_iso||''
+      });
+      return true;
+    }
+    sonHata=new Error('Düzeltme doğrulanamadı (başka bir cihaz aynı anda yazdı)');
+  }
+  throw sonHata||new Error('Düzeltilemedi');
+}
+
+/* ── Kalem özeti ─────────────────────────────────────────────────── */
+/** Masaüstündeki dokumaUrunIkinciOzet ile aynı: toplamlar boşsa girisler'den toplanır. */
+function kalemOzet(k,u){
+  const tip=ikinciBirimTip(k);
+  let metre=parseFloat(u?.toplam_metre)||0;
+  let kg=parseFloat(u?.toplam_kg)||0;
+  let adet=parseInt(u?.toplam_adet,10)||0;
+  if(!(metre>0||kg>0||adet>0)&&Array.isArray(u?.girisler)){
+    u.girisler.forEach(g=>{
+      metre+=parseFloat(g?.metre)||0;
+      kg+=parseFloat(g?.kg)||0;
+      adet+=parseInt(g?.adet,10)||0;
+    });
+  }
+  const birim=siparisKalemBirim(k);
+  const hedef=parseFloat(k?.miktar||0)||0;
+  /* Kalan hangi birimden ölçülüyor? MT siparişte metre, KG'de kg, adette adet. */
+  const yapilan=birim==='MT'?metre:(birim==='KG'?kg:adet);
+  return {
+    tip,metre,kg,adet,
+    ikinci:tip==='KG'?kg:adet,
+    ikinciTip:tip,
+    ikinciEtiket:tip==='KG'?'kg':'adet',
+    hedef,hedefBirim:birim.toLowerCase(),
+    yapilan,kalan:Math.max(0,hedef-yapilan),fazla:Math.max(0,yapilan-hedef)
+  };
+}
+
+/* ── Ürün arama + top girişi (ana ekran) ─────────────────────────── */
+let _uaHaystackCache=new Map();
+let _uaDebounce=null;
+let _uaSonSatirlar=[];
+
+function urunAraHaystack(sip,k,idx){
+  const ck=sip.id+'|'+idx;
+  let h=_uaHaystackCache.get(ck);
+  if(h===undefined){
+    h=normText([sip.sno,sip.firma,sip.musteri,k.ad,k.kod,k.renk,k.ebat,k.olcu].join(' '));
+    _uaHaystackCache.set(ck,h);
+  }
+  return h;
+}
+function urunAraDegisti(){clearTimeout(_uaDebounce);_uaDebounce=setTimeout(()=>{urunAraRender();},280);}
+
+async function urunAraSatirlariGetir(q){
+  const parts=normText(q).split(' ').filter(Boolean);
+  if(!parts.length)return[];
+  const eslesen=[];
+  siparisler.forEach(sip=>{
+    parseKalemler(sip).forEach((k,idx)=>{
+      if(parts.every(p=>urunAraHaystack(sip,k,idx).includes(p)))eslesen.push({sip,k,idx});
+    });
+  });
+  eslesen.sort((a,b)=>compareSno(a.sip.sno,b.sip.sno));
+  const top=eslesen.slice(0,40);
+  await getKdBatch(top.map(e=>e.sip.id),KD_TIP);
+  return top.map(({sip,k,idx})=>{
+    const kd=kdCache[KD_TIP+'_'+sip.id]||{};
+    const u=kd?.urunler?.[idx]||{};
+    return {
+      siparisId:sip.id,sno:sip.sno||String(sip.id),firma:sip.firma||sip.musteri||'—',
+      kalemIdx:idx,kalem:k,
+      etiket:[k.ad||k.kod||('Kalem '+(idx+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · '),
+      ozet:kalemOzet(k,u)
+    };
+  });
+}
+
+function gkSatirHtml(r){
+  const rid=`${r.siparisId}-${r.kalemIdx}`;
+  const o=r.ozet;
+  const ikinciPh=o.ikinciTip==='KG'?'kg':'adet';
+  return `<div class="gk" id="gk-${rid}">
+    <div class="gk-ust">
+      <div class="gk-sno">${esc(r.sno)}</div>
+      <div class="gk-firma">${esc(r.firma)}</div>
+    </div>
+    <div class="gk-ad">${esc(r.etiket)}</div>
+    <div class="gk-say" id="gk-say-${rid}">${gkSayacHtml(o)}</div>
+    <div class="gk-form">
+      <input id="gk-m-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="next"
+        autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="metre (m)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('gk-i-${rid}').focus();}">
+      <input id="gk-i-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done"
+        autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="${ikinciPh}"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();gkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx});}">
+      <button type="button" class="gk-btn" id="gk-btn-${rid}" onclick="gkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx})">Kaydet</button>
+    </div>
+    <div id="gk-son-${rid}"></div>
+  </div>`;
+}
+
+function gkSayacHtml(o){
+  return `<div><div class="gk-say-v">${fmt(o.hedef,0)} <span style="font-size:9px;font-weight:600;color:var(--text3)">${esc(o.hedefBirim)}</span></div><div class="gk-say-l">Sipariş</div></div>
+    <div><div class="gk-say-v" style="color:var(--accent2)">${fmt(o.metre,1)} <span style="font-size:9px;font-weight:600;opacity:.7">m</span></div><div class="gk-say-l">Dokunan metre</div></div>
+    ${o.fazla>0
+      ? `<div><div class="gk-say-v" style="color:var(--amber)">▲ +${fmt(o.fazla,0)} <span style="font-size:9px;font-weight:600;opacity:.7">${esc(o.hedefBirim)}</span></div><div class="gk-say-l">Fazla dokundu</div></div>`
+      : `<div><div class="gk-say-v" style="color:${o.kalan>0?'var(--amber)':'var(--green)'}">${fmt(o.kalan,0)} <span style="font-size:9px;font-weight:600;opacity:.7">${esc(o.hedefBirim)}</span></div><div class="gk-say-l">Kalan</div></div>`}`;
+}
+
+async function urunAraRender(){
+  const host=document.getElementById('ua-sonuc-area');
+  if(!host)return;
+  const q=(document.getElementById('ua-arama')?.value||'').trim();
+  if(q.length<2){
+    host.innerHTML=`<div class="empty"><div class="icon">🔍</div>${q?'En az 2 karakter yazın…':'Aramak için yukarıya yazın'}</div>`;
+    _uaSonSatirlar=[];
+    return;
+  }
+  host.innerHTML=`<div class="loading"><div class="spinner"></div><div>Aranıyor…</div></div>`;
+  let satirlar=[];
+  try{satirlar=await urunAraSatirlariGetir(q);}
+  catch(e){host.innerHTML=`<div class="empty"><div class="icon">⚠️</div>${esc(e.message||e)}</div>`;return;}
+  /* Kullanıcı yazmaya devam etmiş olabilir — geç gelen sonucu basma */
+  if((document.getElementById('ua-arama')?.value||'').trim()!==q)return;
+  _uaSonSatirlar=satirlar;
+  if(!satirlar.length){
+    host.innerHTML=`<div class="empty"><div class="icon">📭</div><strong>${esc(q)}</strong> için eşleşen ürün bulunamadı.</div>`;
+    return;
+  }
+  const musteri=new Set(satirlar.map(r=>r.firma)).size;
+  host.innerHTML=`<div class="card-head" style="border:1px solid var(--border);border-radius:11px;margin-bottom:9px;background:var(--surface)">
+      <div class="card-dot" style="background:var(--accent)"></div>
+      <div class="card-title">Arama sonuçları</div>
+      <div class="card-count">${satirlar.length} ürün · ${musteri} müşteri</div>
+    </div>`+satirlar.map(gkSatirHtml).join('');
+}
+
+/** Bir kartın sayaçlarını ve "son giriş" satırını tüm listeyi çizmeden tazeler
+    — kalite masasında odak ve kaydırma konumu bozulmamalı. */
+function gkKartTazele(siparisId,kalemIdx,sonGiris){
+  const rid=`${siparisId}-${kalemIdx}`;
+  const satir=_uaSonSatirlar.find(r=>String(r.siparisId)===String(siparisId)&&r.kalemIdx===kalemIdx);
+  if(!satir)return;
+  const kd=kdCache[KD_TIP+'_'+siparisId]||{};
+  satir.ozet=kalemOzet(satir.kalem,kd?.urunler?.[kalemIdx]||{});
+  const sayEl=document.getElementById('gk-say-'+rid);
+  if(sayEl)sayEl.innerHTML=gkSayacHtml(satir.ozet);
+  const sonEl=document.getElementById('gk-son-'+rid);
+  if(sonEl&&sonGiris){
+    const p=[];
+    if(sonGiris.metre)p.push(fmt(sonGiris.metre,1)+' m');
+    if(sonGiris.kg)p.push(fmt(sonGiris.kg,1)+' kg');
+    if(sonGiris.adet)p.push(fmt(sonGiris.adet,0)+' adet');
+    sonEl.innerHTML=`<div class="gk-son">
+      <span>✓ Son kayıt: <strong style="color:var(--text2)">${esc(p.join(' · '))}</strong> · ${esc(String(sonGiris.tarih||'').slice(11))}</span>
+      <button type="button" class="gk-son-geri" onclick="gkGeriAl(this,'${esc(String(siparisId))}',${kalemIdx},'${esc(sonGiris.gid)}')">↩ Geri al</button>
+    </div>`;
+  }
+}
+
+async function gkKaydet(siparisId,kalemIdx){
+  const rid=`${siparisId}-${kalemIdx}`;
+  const mEl=document.getElementById('gk-m-'+rid);
+  const iEl=document.getElementById('gk-i-'+rid);
+  const btn=document.getElementById('gk-btn-'+rid);
+  const satir=_uaSonSatirlar.find(r=>String(r.siparisId)===String(siparisId)&&r.kalemIdx===kalemIdx);
+  if(!satir)return;
+  const tip=satir.ozet.ikinciTip;
+  const metre=sayiOku(mEl?.value);
+  const ikinci=sayiOku(iEl?.value);
+
+  /* Masaüstündeki dtGirisMiktarDogrula ile aynı kural: metre ve ikinci birim
+     ikisi de zorunlu — tek başına metre girilen top depoda eksik görünür. */
+  if(metre<=0){showToast('Metre girin');mEl?.focus();return;}
+  if(ikinci<=0){showToast(tip==='KG'?'KG girin':'Adet girin');iEl?.focus();return;}
+
+  const kg=tip==='KG'?ikinci:0;
+  const adet=tip==='ADET'?Math.round(ikinci):0;
+  const eski=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  if(mEl)mEl.disabled=true;
+  if(iEl)iEl.disabled=true;
+  try{
+    const giris=await dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet);
+    if(mEl)mEl.value='';
+    if(iEl)iEl.value='';
+    gkKartTazele(siparisId,kalemIdx,giris);
+    showToast(`✅ ${esc(satir.etiket)} · ${fmt(metre,1)} m · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'} kaydedildi`,2400);
+    _vgCache=null;
+    setTimeout(()=>mEl?.focus(),50);
+  }catch(e){
+    showToast('❌ Kaydedilemedi: '+(e.message||e),3600);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=eski||'Kaydet';}
+    if(mEl)mEl.disabled=false;
+    if(iEl)iEl.disabled=false;
+  }
+}
+
+async function gkGeriAl(btn,siparisId,kalemIdx,gid){
+  if(!confirm('Bu top kaydı silinsin mi?\n(Dokuma Takip ve Dokuma Depo listesinden de düşer)\n\nSilme işlemi adınızla kayda geçer.'))return;
+  const eski=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  try{
+    const satir=_uaSonSatirlar.find(r=>String(r.siparisId)===String(siparisId)&&r.kalemIdx===kalemIdx);
+    await dokumaGirisSil(siparisId,kalemIdx,gid,satir?.etiket);
+    gkKartTazele(siparisId,kalemIdx,null);
+    const sonEl=document.getElementById(`gk-son-${siparisId}-${kalemIdx}`);
+    if(sonEl)sonEl.innerHTML='';
+    _vgCache=null;
+    showToast('↩ Kayıt geri alındı',2000);
+  }catch(e){
+    showToast('❌ Geri alınamadı: '+(e.message||e),3600);
+    if(btn){btn.disabled=false;btn.textContent=eski;}
+  }
+}
+
+/* ── Girişler sekmesi ────────────────────────────────────────────── */
+let _vgCache=null;
+
+/** Panelden yapılmış girişleri toplar (kaynak=DOKUMA_PANEL), en yeni üstte. */
+async function veriGirisleriYukle(){
+  const ids=siparisler.map(s=>String(s.id));
+  const satirlar=[];
+  const CHUNK=100;
+  for(let i=0;i<ids.length;i+=CHUNK){
+    const{data,error}=await sb.from('siparis_akis')
+      .select('siparis_id,kalem_ad,notlar,created_at').in('siparis_id',ids.slice(i,i+CHUNK)).eq('islem',KD_TIP)
+      .order('created_at',{ascending:false});
+    if(error)throw error;
+    const grup=new Map();
+    (data||[]).forEach(r=>{
+      const sid=String(r.siparis_id);
+      if(!grup.has(sid))grup.set(sid,[]);
+      grup.get(sid).push(r);
+    });
+    grup.forEach((rows,sid)=>{
+      const kd=kdSatirlardanSec(rows);
+      const sip=siparisler.find(s=>String(s.id)===sid);
+      const kalemler=parseKalemler(sip||{});
+      Object.entries(kd?.urunler||{}).forEach(([key,u])=>{
+        const ki=parseInt(key,10);
+        if(!Number.isFinite(ki))return;
+        (u?.girisler||[]).forEach(g=>{
+          /* gid'i olmayan kayıtlar (masaüstü / Excel girişleri) burada
+             düzenlenemez: kimliği yok, listedeki sırası kayabilir. Onların
+             düzeltme yeri masaüstündeki Dokuma Takip · Giriş Geçmişi. */
+          if(!g||g.kaynak!==KAYNAK||!g.gid)return;
+          const k=kalemler[ki]||{};
+          satirlar.push({
+            siparisId:sid,sno:sip?.sno||sid,firma:sip?.firma||sip?.musteri||'—',
+            kalemIdx:ki,
+            etiket:[k.ad||k.kod||('Kalem '+(ki+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · '),
+            birimTip:ikinciBirimTip(k),
+            metre:parseFloat(g.metre||0)||0,kg:parseFloat(g.kg||0)||0,adet:parseInt(g.adet||0,10)||0,
+            tarih:g.tarih||'',ts:Date.parse(g.tarih_iso||'')||0,
+            user:g.user||g.kullanici||'',gid:g.gid,
+            gecmis:Array.isArray(g.gecmis)?g.gecmis:[]
+          });
+        });
+      });
+    });
+  }
+  satirlar.sort((a,b)=>b.ts-a.ts);
+  _vgCache=satirlar.slice(0,80);
+  return _vgCache;
+}
+
+async function veriGirisleriRender(force){
+  const host=document.getElementById('vg-liste-area');
+  if(!host)return;
+  if(!_vgCache||force){
+    host.innerHTML=`<div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>`;
+    try{await veriGirisleriYukle();}
+    catch(e){host.innerHTML=`<div class="empty"><div class="icon">⚠️</div>Yüklenemedi: ${esc(e.message||e)}</div>`;return;}
+  }
+  const liste=_vgCache||[];
+  if(!liste.length){
+    host.innerHTML=`<div class="empty"><div class="icon">📭</div>Bu panelden henüz giriş yapılmamış.</div>`;
+    return;
+  }
+  host.innerHTML=liste.map(vgSatirHtml).join('');
+}
+
+/** Kaydın kim tarafından girildiği + sonradan kim neyi değiştirdiği. */
+function vgGecmisHtml(r){
+  const satirlar=[`<div>📝 Giren: <strong style="color:var(--text2)">${esc(r.user||'—')}</strong> · ${esc(r.tarih||'—')}</div>`];
+  (r.gecmis||[]).forEach(h=>{
+    const t=new Date(h?.ts||'');
+    const zaman=Number.isNaN(t.getTime())?'—':t.toLocaleString('tr-TR');
+    satirlar.push(`<div>✏️ Düzenleyen: <strong style="color:var(--text2)">${esc(h?.user||'—')}</strong> · ${esc(zaman)}
+      <span style="color:var(--text3)"> (${esc(girisMiktarOzeti(h?.eski))} → ${esc(girisMiktarOzeti(h?.yeni))})</span></div>`);
+  });
+  return `<div style="font-size:9px;color:var(--text3);line-height:1.6;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border2)">${satirlar.join('')}</div>`;
+}
+
+function vgSatirHtml(r){
+  const id=esc(r.gid);
+  const ikinciPh=r.birimTip==='KG'?'kg':'adet';
+  const ikinciDeger=r.birimTip==='KG'?(r.kg||''):(r.adet||'');
+  return `<div class="vg-item" id="vg-${id}">
+    <div class="vg-ust">
+      <div class="vg-miktar">${esc(girisMiktarOzeti(r))}</div>
+      <div class="vg-meta">${esc(r.tarih)}${r.user?' · '+esc(r.user):''}</div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px">${esc(r.etiket)}</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="font-size:10px;color:var(--text3)">${esc(r.sno)} · ${esc(r.firma)}</div>
+      <button type="button" class="gk-son-geri" id="vg-ac-${id}" style="margin-left:auto;color:var(--accent2)"
+        onclick="vgDuzenleAc('${id}')">✏️ Düzenle</button>
+    </div>
+    ${vgGecmisHtml(r)}
+    <div id="vg-form-${id}" hidden style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border2)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div>
+          <label class="field-label" for="vg-m-${id}">Metre (m)</label>
+          <input id="vg-m-${id}" class="gk-inp" type="text" inputmode="decimal" autocomplete="off"
+            spellcheck="false" placeholder="metre (m)" value="${esc(r.metre||'')}">
+        </div>
+        <div>
+          <label class="field-label" for="vg-i-${id}">${esc(ikinciPh)}</label>
+          <input id="vg-i-${id}" class="gk-inp" type="text" inputmode="decimal" autocomplete="off"
+            spellcheck="false" placeholder="${ikinciPh}" value="${esc(ikinciDeger)}">
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:7px">
+        <button type="button" class="gk-btn" style="flex:1;padding:10px 0"
+          onclick="vgDuzenleKaydet(this,'${id}')">Kaydet</button>
+        <button type="button" style="padding:0 16px;border:1px solid rgba(239,68,68,.45);background:rgba(239,68,68,.12);color:var(--red);border-radius:8px;font-size:12px;font-weight:800;cursor:pointer"
+          onclick="vgSil(this,'${id}')">🗑 Sil</button>
+        <button type="button" style="padding:0 14px;border:1px solid var(--border2);background:none;color:var(--text3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer"
+          onclick="vgDuzenleKapat('${id}')">Vazgeç</button>
+      </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:6px;line-height:1.5">
+        Yaptığınız değişiklik <strong>adınız ve saatinizle</strong> kayda geçer; ana programın operasyon günlüğünde görünür.
+      </div>
+    </div>
+  </div>`;
+}
+
+function vgSatirBul(gid){return (_vgCache||[]).find(x=>x.gid===gid);}
+
+function vgDuzenleAc(gid){
+  const form=document.getElementById('vg-form-'+gid);
+  const btn=document.getElementById('vg-ac-'+gid);
+  if(!form)return;
+  form.hidden=false;
+  if(btn)btn.hidden=true;
+  document.getElementById('vg-m-'+gid)?.focus();
+}
+function vgDuzenleKapat(gid){
+  const form=document.getElementById('vg-form-'+gid);
+  const btn=document.getElementById('vg-ac-'+gid);
+  const r=vgSatirBul(gid);
+  if(form)form.hidden=true;
+  if(btn)btn.hidden=false;
+  /* Kaydedilmemiş değişiklikleri geri al */
+  if(r){
+    const m=document.getElementById('vg-m-'+gid);
+    const i=document.getElementById('vg-i-'+gid);
+    if(m)m.value=r.metre||'';
+    if(i)i.value=(r.birimTip==='KG'?r.kg:r.adet)||'';
+  }
+}
+
+async function vgDuzenleKaydet(btn,gid){
+  const r=vgSatirBul(gid);
+  if(!r)return;
+  const metre=sayiOku(document.getElementById('vg-m-'+gid)?.value);
+  const ikinci=sayiOku(document.getElementById('vg-i-'+gid)?.value);
+  /* Girişteki kuralın aynısı: metre ve ikinci birim ikisi de dolu olmalı.
+     Sıfırlamak isteyen kaydı siler — yarım kayıt depoda eksik görünür. */
+  if(metre<=0||ikinci<=0){
+    showToast('Metre ve '+(r.birimTip==='KG'?'kg':'adet')+' dolu olmalı — silmek için 🗑 Sil',3000);
+    return;
+  }
+  const yeni={metre,kg:r.birimTip==='KG'?ikinci:0,adet:r.birimTip==='ADET'?Math.round(ikinci):0};
+  const eskiTxt=btn.textContent;
+  btn.disabled=true;btn.textContent='…';
+  try{
+    const degisti=await dokumaGirisGuncelle(r.siparisId,r.kalemIdx,gid,yeni,r.etiket);
+    if(!degisti){showToast('Değişiklik yok',1800);vgDuzenleKapat(gid);return;}
+    showToast('✅ Kayıt düzeltildi · '+girisMiktarOzeti(yeni),2600);
+    await veriGirisleriRender(true);
+  }catch(e){
+    showToast('❌ Düzeltilemedi: '+(e.message||e),3600);
+  }finally{
+    btn.disabled=false;btn.textContent=eskiTxt;
+  }
+}
+
+async function vgSil(btn,gid){
+  const r=vgSatirBul(gid);
+  if(!r)return;
+  if(!confirm(`Bu kayıt silinsin mi?\n\n${r.etiket}\n${girisMiktarOzeti(r)}\nGiren: ${r.user||'—'} · ${r.tarih||'—'}\n\n(Dokuma Takip ve Dokuma Depo listesinden de düşer.\nSilme işlemi adınızla kayda geçer.)`))return;
+  const eskiTxt=btn.textContent;
+  btn.disabled=true;btn.textContent='…';
+  try{
+    await dokumaGirisSil(r.siparisId,r.kalemIdx,gid,r.etiket);
+    _vgCache=(_vgCache||[]).filter(x=>x.gid!==gid);
+    const el=document.getElementById('vg-'+gid);
+    if(el)el.remove();
+    if(!(_vgCache||[]).length)veriGirisleriRender();
+    showToast('🗑 Kayıt silindi',2200);
+  }catch(e){
+    showToast('❌ Silinemedi: '+(e.message||e),3600);
+    btn.disabled=false;btn.textContent=eskiTxt;
+  }
+}
+
+/* ── Sekme / yenileme / toast ────────────────────────────────────── */
+function aktifTabId(){
+  for(const id of ['giris','siparisler','girisler']){
+    const el=document.getElementById('tab-'+id);
+    if(el&&el.style.display!=='none')return id;
+  }
+  return 'giris';
+}
+function switchTab(t,idx){
+  const onceki=aktifTabId();
+  ['giris','siparisler','girisler'].forEach(id=>{
+    const el=document.getElementById('tab-'+id);
+    if(el)el.style.display=id===t?'':'none';
+  });
+  const aktifIdx=typeof idx==='number'?idx:({giris:0,siparisler:1,girisler:2})[t]??0;
+  document.querySelectorAll('#main-tab-bar .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===aktifIdx));
+  writeUiState({activeTab:t});
+  if(t==='girisler'&&onceki!=='girisler')setTimeout(()=>{veriGirisleriRender();},0);
+}
+
+async function manuelYenile(){
+  const btn=document.getElementById('yenile-btn');
+  if(btn){btn.disabled=true;btn.style.opacity='.6';btn.textContent='⏳';}
+  try{
+    kdCache={};kdCacheTs={};_vgCache=null;
+    await loadSiparisler();
+    const t=aktifTabId();
+    if(t==='giris')await urunAraRender();
+    else if(t==='girisler')await veriGirisleriRender(true);
+    showToast('✅ Güncellendi',1200);
+  }catch(e){showToast('❌ Yenilenemedi: '+(e.message||e));}
+  if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='🔄';}
+}
+
+function showToast(m,d=1500){
+  const t=document.getElementById('toast');
+  t.textContent=m;
+  t.className='';
+  if(m.includes('✅')||m.includes('↩'))t.classList.add('toast-ok');
+  else if(m.includes('❌')||m.includes('Hata'))t.classList.add('toast-err');
+  else t.classList.add('toast-info');
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.classList.remove('show');},d);
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  /* Panelde eski bir service worker kalmışsa güncelleme hiç görünmüyor;
+     konfeksiyon panelindeki ile aynı karar: kayıtlı SW'leri kaldır. */
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations()
+      .then(rs=>Promise.all(rs.map(r=>r.unregister())))
+      .catch(()=>{});
+  }
+  if(!initSB())return;
+  if(tryRestoreSession())startApp();
+});
+</script>
+</body>
+</html>
