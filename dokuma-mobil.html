@@ -127,6 +127,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .vg-ust{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
 .vg-miktar{font-size:13px;font-weight:800;color:var(--accent2)}
 .vg-meta{font-size:10px;color:var(--text3);margin-left:auto;text-align:right}
+/* Tezgahlar — salon üstten görünüm: liste değil, ızgara (tablo) */
+.tezgah-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:7px;padding:12px}
+.tezgah-cell{position:relative;aspect-ratio:1/1;border-radius:10px;border:1px solid var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px;text-align:center;cursor:pointer;transition:transform .1s}
+.tc-dikkat{position:absolute;top:-4px;right:-4px;width:15px;height:15px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--bg)}
+.tezgah-cell:active{transform:scale(.94)}
+.tezgah-cell.tc-dokuyor{background:rgba(16,185,129,.16);border-color:var(--green)}
+.tezgah-cell.tc-bosta{background:rgba(245,158,11,.12);border-color:var(--amber)}
+.tezgah-cell.tc-bos{background:var(--surface);border-color:var(--border)}
+.tc-no{font-size:12px;font-weight:800;color:var(--text);line-height:1.15}
+.tc-alt{font-size:7.5px;color:var(--text2);line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tezgah-legend{display:flex;gap:12px;flex-wrap:wrap;padding:0 12px 10px;font-size:9px;color:var(--text3)}
+.tezgah-legend span{display:inline-flex;align-items:center;gap:4px}
+.tezgah-legend i{width:8px;height:8px;border-radius:3px;display:inline-block}
+@media (min-width:700px){.tezgah-grid{grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:9px}.tc-no{font-size:13px}.tc-alt{font-size:8.5px}}
 
 @media (max-width: 480px){
   #topbar{padding:0 10px;height:50px;gap:6px}
@@ -203,6 +217,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="tab-btn" onclick="switchTab('giris',0)">🧵 Kalite Girişi</button>
     <button class="tab-btn" onclick="switchTab('siparisler',1)">📋 Siparişler</button>
     <button class="tab-btn" onclick="switchTab('girisler',2)">📝 Girişler</button>
+    <button class="tab-btn" onclick="switchTab('tezgahlar',3)">⚙️ Tezgahlar</button>
   </div>
 
   <div id="tab-giris" class="content">
@@ -248,6 +263,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="vg-liste-area">
       <div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>
     </div>
+  </div>
+
+  <div id="tab-tezgahlar" class="content" style="display:none">
+    <div class="sel-card">
+      <div class="sec-title" style="margin-bottom:7px">Tezgahlar</div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.45">
+        Tezgah numarasına dokunun — o tezgahta şu an hangi siparişin
+        dokunduğunu ve sırada ne olduğunu görün. Veri, masaüstündeki
+        Tezgah Planlama ile aynı yerden gelir.
+      </div>
+    </div>
+    <div id="tezgah-liste-area">
+      <div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="tezgah-modal" style="display:none;position:fixed;inset:0;z-index:200">
+  <div class="modal-backdrop" onclick="closeTezgahModal()"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-sno" id="tz-tezgah-no">—</div>
+      <div class="modal-firma" id="tz-tezgah-tip">—</div>
+    </div>
+    <div class="modal-body" id="tz-modal-body"></div>
   </div>
 </div>
 
@@ -1265,7 +1306,7 @@ async function vgSil(btn,gid){
 
 /* ── Sekme / yenileme / toast ────────────────────────────────────── */
 function aktifTabId(){
-  for(const id of ['giris','siparisler','girisler']){
+  for(const id of ['giris','siparisler','girisler','tezgahlar']){
     const el=document.getElementById('tab-'+id);
     if(el&&el.style.display!=='none')return id;
   }
@@ -1273,14 +1314,15 @@ function aktifTabId(){
 }
 function switchTab(t,idx){
   const onceki=aktifTabId();
-  ['giris','siparisler','girisler'].forEach(id=>{
+  ['giris','siparisler','girisler','tezgahlar'].forEach(id=>{
     const el=document.getElementById('tab-'+id);
     if(el)el.style.display=id===t?'':'none';
   });
-  const aktifIdx=typeof idx==='number'?idx:({giris:0,siparisler:1,girisler:2})[t]??0;
+  const aktifIdx=typeof idx==='number'?idx:({giris:0,siparisler:1,girisler:2,tezgahlar:3})[t]??0;
   document.querySelectorAll('#main-tab-bar .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===aktifIdx));
   writeUiState({activeTab:t});
   if(t==='girisler'&&onceki!=='girisler')setTimeout(()=>{veriGirisleriRender();},0);
+  if(t==='tezgahlar'&&onceki!=='tezgahlar')setTimeout(()=>{tezgahlarRender();},0);
 }
 
 async function manuelYenile(){
@@ -1292,6 +1334,7 @@ async function manuelYenile(){
     const t=aktifTabId();
     if(t==='giris')await urunAraRender();
     else if(t==='girisler')await veriGirisleriRender(true);
+    else if(t==='tezgahlar')await tezgahlarRender();
     showToast('✅ Güncellendi',1200);
   }catch(e){showToast('❌ Yenilenemedi: '+(e.message||e));}
   if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='🔄';}
@@ -1308,6 +1351,301 @@ function showToast(m,d=1500){
   clearTimeout(t._timer);
   t._timer=setTimeout(()=>{t.classList.remove('show');},d);
 }
+
+/* ── Tezgahlar — hangi siparişin hangi tezgahta dokunduğu ──────────
+   Ayrı bir veri kaynağı icat edilmedi: masaüstündeki Tezgah Planlama
+   ile AYNI tablolar (tezgahlar, dokuma_levent_is). "Dokunan metre"
+   gibi hesaplar burada YOK — o, masaüstünde KD_DOKUMA girişlerinden
+   canlı hesaplanıyor (tpDokunanHesapla); burada sadece "hangi sipariş
+   şu an bu tezgahta dokunuyor" gösteriliyor. */
+let tezgahlarCache=[],tezgahIslerCache=[],tzSiparisCache=new Map(),tezgahDikkatSet=new Set();
+
+/** Bir tezgahta EN SON biten (bit_ts'e göre) iş — yoksa null. */
+function tezgahSonBitenIs(tezgahId){
+  const bitenler=tezgahIsleri(tezgahId).filter(i=>String(i.durum||'').toUpperCase()==='BITTI'&&i.bit_ts);
+  if(!bitenler.length)return null;
+  bitenler.sort((a,b)=>new Date(b.bit_ts)-new Date(a.bit_ts));
+  return bitenler[0];
+}
+/** KD_DOKUMA'da bu iş için hiç kayıt var mı — girisler dizisi VEYA toplamlar. */
+function tzKalemVeriGirilmisMi(siparisId,kalemIdx){
+  const kd=kdCache[KD_TIP+'_'+siparisId]||{};
+  const u=kd?.urunler?.[kalemIdx];
+  if(!u)return false;
+  return (u.girisler||[]).length>0||(parseFloat(u.toplam_metre)||0)>0||(parseFloat(u.toplam_kg)||0)>0||(parseInt(u.toplam_adet,10)||0)>0;
+}
+
+async function loadTezgahlar(){
+  const[tzRes,isRes]=await Promise.all([
+    sb.from('tezgahlar').select('id,tezgah_no,tezgah_tipi,aktif').limit(500),
+    sb.from('dokuma_levent_is').select('id,tezgah_id,siparis_id,kalem_idx,durum,sira,hedef_metre,hedef_adet,bit_ts').eq('aktif',true).limit(2000)
+  ]);
+  if(tzRes.error)throw tzRes.error;
+  tezgahlarCache=(tzRes.data||[]).filter(t=>t.aktif!==false)
+    .sort((a,b)=>String(a.tezgah_no||'').localeCompare(String(b.tezgah_no||''),'tr',{numeric:true}));
+  tezgahIslerCache=isRes.error?[]:(isRes.data||[]);
+  const sids=[...new Set(tezgahIslerCache.map(i=>i.siparis_id).filter(v=>v!=null).map(String))];
+  tzSiparisCache=new Map();
+  if(sids.length){
+    const{data,error}=await sb.from('siparisler').select('id,sno,firma,musteri,cins').in('id',sids);
+    if(!error)(data||[]).forEach(s=>tzSiparisCache.set(String(s.id),s));
+  }
+
+  /* İş bitip sıradakine geçilse bile, biten işin kalite verisi girilmeden
+     ekrandan düşmesin — bunun için hangi tezgahların "en son biten işi"nde
+     hiç KD_DOKUMA kaydı olmadığını (dikkat gerektiren) önceden hesaplıyoruz,
+     tek toplu sorguyla (getKdBatch) — 65 tezgah için 65 ayrı istek atmadan. */
+  tezgahDikkatSet=new Set();
+  const sonBitenler=new Map();
+  tezgahlarCache.forEach(t=>{
+    const sb2=tezgahSonBitenIs(t.id);
+    if(sb2)sonBitenler.set(String(t.id),sb2);
+  });
+  if(sonBitenler.size){
+    await getKdBatch([...sonBitenler.values()].map(i=>i.siparis_id),KD_TIP);
+    sonBitenler.forEach((is,tezgahId)=>{
+      if(!tzKalemVeriGirilmisMi(is.siparis_id,is.kalem_idx))tezgahDikkatSet.add(tezgahId);
+    });
+  }
+}
+function tezgahIsleri(tezgahId){
+  return tezgahIslerCache.filter(i=>String(i.tezgah_id)===String(tezgahId))
+    .sort((a,b)=>(parseInt(a.sira,10)||0)-(parseInt(b.sira,10)||0));
+}
+function tezgahDurum(tezgahId){
+  const isler=tezgahIsleri(tezgahId);
+  if(isler.some(i=>String(i.durum||'').toUpperCase()==='DOKUNUYOR'))return'DOKUYOR';
+  if(isler.some(i=>String(i.durum||'').toUpperCase()==='KUYRUKTA'))return'BOSTA';
+  return'BOS';
+}
+/** İş satırından okunabilir sipariş/ürün bilgisi — sipariş kapanmış/bulunamıyorsa da çökmez. */
+function tzIsEtiket(is){
+  const sip=tzSiparisCache.get(String(is?.siparis_id));
+  if(!sip)return{sno:'Sipariş #'+(is?.siparis_id??'—'),firma:'—',urun:'—',hedef:'—'};
+  const k=parseKalemler(sip)[is.kalem_idx]||{};
+  const hedef=is.hedef_metre?fmt(is.hedef_metre,0)+' m':(is.hedef_adet?fmt(is.hedef_adet,0)+' ad':'—');
+  return{
+    sno:sip.sno||String(sip.id),
+    firma:sip.firma||sip.musteri||'—',
+    urun:[k.ad||k.kod||('Kalem '+((is.kalem_idx??0)+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · ')||'—',
+    hedef
+  };
+}
+
+async function tezgahlarRender(){
+  const host=document.getElementById('tezgah-liste-area');
+  if(!host)return;
+  host.innerHTML=`<div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>`;
+  try{await loadTezgahlar();}
+  catch(e){host.innerHTML=`<div class="empty"><div class="icon">⚠️</div>Yüklenemedi: ${esc(e.message||e)}</div>`;return;}
+  if(!tezgahlarCache.length){host.innerHTML=`<div class="empty"><div class="icon">⚙️</div>Tezgah bulunamadı</div>`;return;}
+  const dokuyor=tezgahlarCache.filter(t=>tezgahDurum(t.id)==='DOKUYOR').length;
+  let html=`<div class="kpi-row">
+    <div class="kpi-box"><div class="kpi-val" style="color:var(--accent2)">${tezgahlarCache.length}</div><div class="kpi-lbl">Toplam</div></div>
+    <div class="kpi-box"><div class="kpi-val" style="color:var(--green)">${dokuyor}</div><div class="kpi-lbl">Dokuyor</div></div>
+    <div class="kpi-box"><div class="kpi-val" style="color:var(--text3)">${tezgahlarCache.length-dokuyor}</div><div class="kpi-lbl">Boşta / Boş</div></div>
+  </div>
+  <div class="tezgah-legend">
+    <span><i style="background:rgba(16,185,129,.5);border:1px solid var(--green)"></i>Dokuyor</span>
+    <span><i style="background:rgba(245,158,11,.4);border:1px solid var(--amber)"></i>Boşta</span>
+    <span><i style="background:var(--surface);border:1px solid var(--border2)"></i>Boş</span>
+    <span><i style="background:var(--red);border-radius:50%"></i>Biten işin verisi girilmedi</span>
+  </div>
+  <div class="tezgah-grid">${tezgahlarCache.map(tezgahHucreHtml).join('')}</div>`;
+  host.innerHTML=html;
+}
+
+/** Salon üstten görünüm: her tezgah bir kare hücre — liste değil ızgara. */
+function tezgahHucreHtml(t){
+  const durum=tezgahDurum(t.id);
+  const dokunanIs=durum==='DOKUYOR'?tezgahIsleri(t.id).find(i=>String(i.durum||'').toUpperCase()==='DOKUNUYOR'):null;
+  const et=dokunanIs?tzIsEtiket(dokunanIs):null;
+  const kuyrukSay=tezgahIsleri(t.id).filter(i=>String(i.durum||'').toUpperCase()==='KUYRUKTA').length;
+  const sinif=durum==='DOKUYOR'?'tc-dokuyor':(durum==='BOSTA'?'tc-bosta':'tc-bos');
+  const alt=et?et.sno:(durum==='BOSTA'?`sırada ${kuyrukSay}`:'—');
+  let baslik=et?`${et.sno} · ${et.firma} · ${et.urun}`:(durum==='BOSTA'?`sırada ${kuyrukSay} iş`:'boş');
+  const dikkat=tezgahDikkatSet.has(String(t.id));
+  if(dikkat)baslik+=' · ⚠ biten işin kalite verisi girilmedi';
+  return `<div class="tezgah-cell ${sinif}" onclick="openTezgah('${esc(String(t.id))}')" title="${esc(t.tezgah_no||('#'+t.id))} — ${esc(baslik)}">
+    ${dikkat?'<div class="tc-dikkat">!</div>':''}
+    <div class="tc-no">${esc(t.tezgah_no||('#'+t.id))}</div>
+    <div class="tc-alt">${esc(alt)}</div>
+  </div>`;
+}
+
+/* ── Tezgah detayından top girişi ────────────────────────────────
+   AYRI bir yazma yolu YOK: Kalite Girişi'ndeki dokumaGirisEkle/
+   dokumaGirisSil'in AYNISI çağrılıyor, sadece kart/ID'leri (tzgk-)
+   ayrı — Kalite Girişi'nde aynı ürün açıkken id çakışmasın diye.
+   Aynı anda İKİ satır olabilir: şu an dokunan iş + (varsa) az önce
+   bitmiş ama kalite verisi hiç girilmemiş iş — bu yüzden tekil
+   değişken değil, rid → satır eşlemesi (Map) kullanılıyor. */
+let _tzAktifSatirlar=new Map();
+
+function tzSatirHazirla(sip,kalemIdx,kd){
+  const k=parseKalemler(sip)[kalemIdx]||{};
+  const u=kd?.urunler?.[kalemIdx]||{};
+  return{
+    siparisId:sip.id,sno:sip.sno||String(sip.id),firma:sip.firma||sip.musteri||'—',
+    kalemIdx,kalem:k,
+    etiket:[k.ad||k.kod||('Kalem '+((kalemIdx??0)+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · ')||'—',
+    ozet:kalemOzet(k,u)
+  };
+}
+
+function tzGkSatirHtml(r){
+  const rid=`${r.siparisId}-${r.kalemIdx}`;
+  const o=r.ozet;
+  const ikinciPh=o.ikinciTip==='KG'?'kg':'adet';
+  return `<div class="gk" id="tzgk-${rid}">
+    <div class="gk-say" id="tzgk-say-${rid}">${gkSayacHtml(o)}</div>
+    <div class="gk-form">
+      <input id="tzgk-m-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="next"
+        autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="metre (m)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('tzgk-i-${rid}').focus();}">
+      <input id="tzgk-i-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done"
+        autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="${ikinciPh}"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();tzGkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx});}">
+      <button type="button" class="gk-btn" id="tzgk-btn-${rid}" onclick="tzGkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx})">Kaydet</button>
+    </div>
+    <div id="tzgk-son-${rid}"></div>
+  </div>`;
+}
+
+async function tzGkKaydet(siparisId,kalemIdx){
+  const rid=`${siparisId}-${kalemIdx}`;
+  const satir=_tzAktifSatirlar.get(rid);
+  if(!satir)return;
+  const mEl=document.getElementById('tzgk-m-'+rid);
+  const iEl=document.getElementById('tzgk-i-'+rid);
+  const btn=document.getElementById('tzgk-btn-'+rid);
+  const tip=satir.ozet.ikinciTip;
+  const metre=sayiOku(mEl?.value);
+  const ikinci=sayiOku(iEl?.value);
+  if(metre<=0){showToast('Metre girin');mEl?.focus();return;}
+  if(ikinci<=0){showToast(tip==='KG'?'KG girin':'Adet girin');iEl?.focus();return;}
+  const kg=tip==='KG'?ikinci:0;
+  const adet=tip==='ADET'?Math.round(ikinci):0;
+  const eski=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  if(mEl)mEl.disabled=true;
+  if(iEl)iEl.disabled=true;
+  try{
+    const giris=await dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet);
+    if(mEl)mEl.value='';
+    if(iEl)iEl.value='';
+    const kd=kdCache[KD_TIP+'_'+siparisId]||{};
+    satir.ozet=kalemOzet(satir.kalem,kd?.urunler?.[kalemIdx]||{});
+    const sayEl=document.getElementById('tzgk-say-'+rid);
+    if(sayEl)sayEl.innerHTML=gkSayacHtml(satir.ozet);
+    const sonEl=document.getElementById('tzgk-son-'+rid);
+    if(sonEl){
+      const p=[];
+      if(giris.metre)p.push(fmt(giris.metre,1)+' m');
+      if(giris.kg)p.push(fmt(giris.kg,1)+' kg');
+      if(giris.adet)p.push(fmt(giris.adet,0)+' adet');
+      sonEl.innerHTML=`<div class="gk-son"><span>✓ Son kayıt: <strong style="color:var(--text2)">${esc(p.join(' · '))}</strong> · ${esc(String(giris.tarih||'').slice(11))}</span>
+        <button type="button" class="gk-son-geri" onclick="tzGkGeriAl(this,'${esc(String(siparisId))}',${kalemIdx},'${esc(giris.gid)}')">↩ Geri al</button></div>`;
+    }
+    showToast(`✅ ${esc(satir.etiket)} · ${fmt(metre,1)} m · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'} kaydedildi`,2400);
+    _vgCache=null;
+    setTimeout(()=>mEl?.focus(),50);
+  }catch(e){
+    showToast('❌ Kaydedilemedi: '+(e.message||e),3600);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=eski||'Kaydet';}
+    if(mEl)mEl.disabled=false;
+    if(iEl)iEl.disabled=false;
+  }
+}
+
+async function tzGkGeriAl(btn,siparisId,kalemIdx,gid){
+  if(!confirm('Bu top kaydı silinsin mi?\n(Dokuma Takip ve Dokuma Depo listesinden de düşer)\n\nSilme işlemi adınızla kayda geçer.'))return;
+  const rid=`${siparisId}-${kalemIdx}`;
+  const satir=_tzAktifSatirlar.get(rid);
+  const eski=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  try{
+    await dokumaGirisSil(siparisId,kalemIdx,gid,satir?.etiket);
+    if(satir){
+      const kd=kdCache[KD_TIP+'_'+siparisId]||{};
+      satir.ozet=kalemOzet(satir.kalem,kd?.urunler?.[kalemIdx]||{});
+      const sayEl=document.getElementById('tzgk-say-'+rid);
+      if(sayEl)sayEl.innerHTML=gkSayacHtml(satir.ozet);
+    }
+    const sonEl=document.getElementById('tzgk-son-'+rid);
+    if(sonEl)sonEl.innerHTML='';
+    _vgCache=null;
+    showToast('↩ Kayıt geri alındı',2000);
+  }catch(e){
+    showToast('❌ Geri alınamadı: '+(e.message||e),3600);
+    if(btn){btn.disabled=false;btn.textContent=eski;}
+  }
+}
+
+async function openTezgah(id){
+  const t=tezgahlarCache.find(x=>String(x.id)===String(id));
+  if(!t)return;
+  document.getElementById('tz-tezgah-no').textContent=t.tezgah_no||('#'+t.id);
+  document.getElementById('tz-tezgah-tip').textContent=t.tezgah_tipi||'—';
+  document.getElementById('tz-modal-body').innerHTML=`<div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>`;
+  document.getElementById('tezgah-modal').style.display='block';
+  _tzAktifSatirlar=new Map();
+  const isler=tezgahIsleri(t.id);
+  const dokunan=isler.find(i=>String(i.durum||'').toUpperCase()==='DOKUNUYOR');
+  const kuyruk=isler.filter(i=>String(i.durum||'').toUpperCase()==='KUYRUKTA');
+  const sonBiten=tezgahSonBitenIs(t.id);
+  let html='';
+
+  /* İş bitip sıradakine geçilse bile, kalite verisi hiç girilmemiş biten
+     iş ekrandan düşmesin — dokunan işten ÖNCE, kırmızı uyarıyla gösterilir. */
+  let sonBitenEksik=false;
+  if(sonBiten){
+    const sip=tzSiparisCache.get(String(sonBiten.siparis_id));
+    if(sip){
+      const kd=await getKd(sip.id,KD_TIP);
+      sonBitenEksik=!tzKalemVeriGirilmisMi(sip.id,sonBiten.kalem_idx);
+      if(sonBitenEksik){
+        const satir=tzSatirHazirla(sip,sonBiten.kalem_idx,kd);
+        _tzAktifSatirlar.set(`${satir.siparisId}-${satir.kalemIdx}`,satir);
+        html+=`<div class="sec-title" style="color:var(--red)">⚠ Biten iş — kalite verisi eksik</div>
+          <div class="gk-ust" style="margin-bottom:6px"><div class="gk-sno">${esc(satir.sno)}</div><div class="gk-firma">${esc(satir.firma)}</div></div>
+          <div class="gk-ad" style="margin-bottom:8px">${esc(satir.etiket)}</div>
+          ${tzGkSatirHtml(satir)}
+          <div style="height:14px"></div>`;
+      }
+    }
+  }
+
+  if(dokunan){
+    const sip=tzSiparisCache.get(String(dokunan.siparis_id));
+    if(sip){
+      const kd=await getKd(sip.id,KD_TIP);
+      const satir=tzSatirHazirla(sip,dokunan.kalem_idx,kd);
+      _tzAktifSatirlar.set(`${satir.siparisId}-${satir.kalemIdx}`,satir);
+      html+=`<div class="sec-title">Şu an dokunan sipariş — top girişi</div>
+        <div class="gk-ust" style="margin-bottom:6px"><div class="gk-sno">${esc(satir.sno)}</div><div class="gk-firma">${esc(satir.firma)}</div></div>
+        <div class="gk-ad" style="margin-bottom:8px">${esc(satir.etiket)}</div>
+        ${tzGkSatirHtml(satir)}`;
+    }else{
+      const et=tzIsEtiket(dokunan);
+      html+=`<div class="sec-title">Şu an dokunan sipariş</div>
+        <div class="gk"><div class="gk-ust"><div class="gk-sno">${esc(et.sno)}</div></div>
+        <div class="gk-ad">Sipariş kaydı bulunamadı — top girişi buradan yapılamıyor, Kalite Girişi'nden arayın.</div></div>`;
+    }
+  }else if(!sonBitenEksik){
+    html+=`<div class="empty"><div class="icon">⚙️</div>Bu tezgahta şu an dokunan bir iş yok</div>`;
+  }
+  if(kuyruk.length){
+    html+=`<div class="sec-title" style="margin-top:14px">Sırada bekleyen (${kuyruk.length})</div>`;
+    html+=kuyruk.map(i=>{
+      const et=tzIsEtiket(i);
+      return `<div class="info-row"><div class="info-key">${esc(et.sno)} · ${esc(et.urun)}</div><div class="info-val">${esc(et.hedef)}</div></div>`;
+    }).join('');
+  }
+  document.getElementById('tz-modal-body').innerHTML=html;
+}
+function closeTezgahModal(){document.getElementById('tezgah-modal').style.display='none';_tzAktifSatirlar=new Map();}
 
 window.addEventListener('DOMContentLoaded',()=>{
   /* Panelde eski bir service worker kalmışsa güncelleme hiç görünmüyor;
