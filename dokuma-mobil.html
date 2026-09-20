@@ -386,17 +386,20 @@ function sayiOku(raw){
 }
 
 /* ── Sipariş birimi ───────────────────────────────────────────────
-   Masaüstüyle birebir aynı kural (dtKalemIkinciBirimTip):
-   kalem birimi MT veya KG ise ikinci birim KG, aksi halde ADET.   */
+   Masaüstüyle birebir aynı kural (dtKalemIkinciBirimTip) — kullanıcı, 20.09.2026:
+   sipariş hangi birimle açıldıysa o veri girilir.
+   ADET → metre + adet · KG → metre + kg · MT → YALNIZ metre ('MT').   */
 function siparisKalemBirim(k){
   const u=String(k?.birim||'ADET').toUpperCase();
   return (u==='MT'||u==='KG')?u:'ADET';
 }
 function ikinciBirimTip(k){
   const b=siparisKalemBirim(k);
-  return (b==='KG'||b==='MT')?'KG':'ADET';
+  if(b==='KG')return'KG';
+  if(b==='MT')return'MT';
+  return'ADET';
 }
-function ikinciBirimEtiket(k){return ikinciBirimTip(k)==='KG'?'kg':'adet';}
+function ikinciBirimEtiket(k){const t=ikinciBirimTip(k);return t==='KG'?'kg':(t==='MT'?'m':'adet');}
 
 /* ── Oturum / giriş ─────────────────────────────────────────────── */
 async function doLogin(){
@@ -617,7 +620,7 @@ async function renderModalTab(t){
       <div class="gk-say">
         <div><div class="gk-say-v">${fmt(o.hedef,0)} <span style="font-size:9px;font-weight:600;color:var(--text3)">${esc(o.hedefBirim)}</span></div><div class="gk-say-l">Sipariş</div></div>
         <div><div class="gk-say-v" style="color:var(--accent2)">${fmt(o.metre,1)} <span style="font-size:9px;font-weight:600;opacity:.7">m</span></div><div class="gk-say-l">Dokunan metre</div></div>
-        <div><div class="gk-say-v" style="color:var(--green)">${fmt(o.ikinci,o.ikinciTip==='KG'?1:0)} <span style="font-size:9px;font-weight:600;opacity:.7">${esc(o.ikinciEtiket)}</span></div><div class="gk-say-l">Dokunan</div></div>
+        ${o.ikinciTip==='MT'?'':`<div><div class="gk-say-v" style="color:var(--green)">${fmt(o.ikinci,o.ikinciTip==='KG'?1:0)} <span style="font-size:9px;font-weight:600;opacity:.7">${esc(o.ikinciEtiket)}</span></div><div class="gk-say-l">Dokunan</div></div>`}
       </div>
     </div>`;
   }).join('');
@@ -715,6 +718,13 @@ function kdOnbellegeYaz(siparisId,kd){
 
 /** Tek top ekler. Başarılıysa yazılan giriş nesnesini döner. */
 async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet){
+  /* Yazma kapısı: sipariş birimine uymayan alan yazılmaz (ADET: m+adet, KG: m+kg, MT: yalnız m). */
+  {
+    const sip=siparisler.find(x=>String(x.id)===String(siparisId));
+    const tip=ikinciBirimTip(parseKalemler(sip||{})[kalemIdx]||{});
+    if(tip!=='KG')kg=0;
+    if(tip!=='ADET')adet=0;
+  }
   const now=new Date();
   const kullanici=kullaniciAdi();
   const gid='dp-'+now.getTime().toString(36)+'-'+Math.random().toString(36).slice(2,8);
@@ -923,9 +933,9 @@ function kalemOzet(k,u){
   const yapilan=birim==='MT'?metre:(birim==='KG'?kg:adet);
   return {
     tip,metre,kg,adet,
-    ikinci:tip==='KG'?kg:adet,
+    ikinci:tip==='KG'?kg:(tip==='MT'?metre:adet),
     ikinciTip:tip,
-    ikinciEtiket:tip==='KG'?'kg':'adet',
+    ikinciEtiket:tip==='KG'?'kg':(tip==='MT'?'m':'adet'),
     hedef,hedefBirim:birim.toLowerCase(),
     yapilan,kalan:Math.max(0,hedef-yapilan),fazla:Math.max(0,yapilan-hedef)
   };
@@ -985,10 +995,10 @@ function gkSatirHtml(r){
     <div class="gk-form">
       <input id="gk-m-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="next"
         autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="metre (m)"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('gk-i-${rid}').focus();}">
-      <input id="gk-i-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();${o.ikinciTip==='MT'?`gkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx})`:`document.getElementById('gk-i-${rid}').focus()`};}">
+      ${o.ikinciTip==='MT'?'':`<input id="gk-i-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done"
         autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="${ikinciPh}"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();gkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx});}">
+        onkeydown="if(event.key==='Enter'){event.preventDefault();gkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx});}">`}
       <button type="button" class="gk-btn" id="gk-btn-${rid}" onclick="gkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx})">Kaydet</button>
     </div>
     <div id="gk-son-${rid}"></div>
@@ -1068,7 +1078,7 @@ async function gkKaydet(siparisId,kalemIdx){
   /* Masaüstündeki dtGirisMiktarDogrula ile aynı kural: metre ve ikinci birim
      ikisi de zorunlu — tek başına metre girilen top depoda eksik görünür. */
   if(metre<=0){showToast('Metre girin');mEl?.focus();return;}
-  if(ikinci<=0){showToast(tip==='KG'?'KG girin':'Adet girin');iEl?.focus();return;}
+  if(tip!=='MT'&&ikinci<=0){showToast(tip==='KG'?'KG girin':'Adet girin');iEl?.focus();return;} /* MT: yalnız metre */
 
   const kg=tip==='KG'?ikinci:0;
   const adet=tip==='ADET'?Math.round(ikinci):0;
@@ -1081,7 +1091,7 @@ async function gkKaydet(siparisId,kalemIdx){
     if(mEl)mEl.value='';
     if(iEl)iEl.value='';
     gkKartTazele(siparisId,kalemIdx,giris);
-    showToast(`✅ ${esc(satir.etiket)} · ${fmt(metre,1)} m · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'} kaydedildi`,2400);
+    showToast(`✅ ${esc(satir.etiket)} · ${fmt(metre,1)} m${tip==='MT'?'':` · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'}`} kaydedildi`,2400);
     _vgCache=null;
     setTimeout(()=>mEl?.focus(),50);
   }catch(e){
@@ -1194,6 +1204,7 @@ function vgSatirHtml(r){
   const id=esc(r.gid);
   const ikinciPh=r.birimTip==='KG'?'kg':'adet';
   const ikinciDeger=r.birimTip==='KG'?(r.kg||''):(r.adet||'');
+  const yalnizMetre=r.birimTip==='MT';
   return `<div class="vg-item" id="vg-${id}">
     <div class="vg-ust">
       <div class="vg-miktar">${esc(girisMiktarOzeti(r))}</div>
@@ -1207,17 +1218,17 @@ function vgSatirHtml(r){
     </div>
     ${vgGecmisHtml(r)}
     <div id="vg-form-${id}" hidden style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border2)">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div style="display:grid;grid-template-columns:${yalnizMetre?'1fr':'1fr 1fr'};gap:6px">
         <div>
           <label class="field-label" for="vg-m-${id}">Metre (m)</label>
           <input id="vg-m-${id}" class="gk-inp" type="text" inputmode="decimal" autocomplete="off"
             spellcheck="false" placeholder="metre (m)" value="${esc(r.metre||'')}">
         </div>
-        <div>
+        ${yalnizMetre?'':`<div>
           <label class="field-label" for="vg-i-${id}">${esc(ikinciPh)}</label>
           <input id="vg-i-${id}" class="gk-inp" type="text" inputmode="decimal" autocomplete="off"
             spellcheck="false" placeholder="${ikinciPh}" value="${esc(ikinciDeger)}">
-        </div>
+        </div>`}
       </div>
       <div style="display:flex;gap:6px;margin-top:7px">
         <button type="button" class="gk-btn" style="flex:1;padding:10px 0"
@@ -1266,8 +1277,8 @@ async function vgDuzenleKaydet(btn,gid){
   const ikinci=sayiOku(document.getElementById('vg-i-'+gid)?.value);
   /* Girişteki kuralın aynısı: metre ve ikinci birim ikisi de dolu olmalı.
      Sıfırlamak isteyen kaydı siler — yarım kayıt depoda eksik görünür. */
-  if(metre<=0||ikinci<=0){
-    showToast('Metre ve '+(r.birimTip==='KG'?'kg':'adet')+' dolu olmalı — silmek için 🗑 Sil',3000);
+  if(metre<=0||(r.birimTip!=='MT'&&ikinci<=0)){
+    showToast((r.birimTip==='MT'?'Metre':'Metre ve '+(r.birimTip==='KG'?'kg':'adet'))+' dolu olmalı — silmek için 🗑 Sil',3000);
     return;
   }
   const yeni={metre,kg:r.birimTip==='KG'?ikinci:0,adet:r.birimTip==='ADET'?Math.round(ikinci):0};
@@ -1502,10 +1513,10 @@ function tzGkSatirHtml(r){
     <div class="gk-form">
       <input id="tzgk-m-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="next"
         autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="metre (m)"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('tzgk-i-${rid}').focus();}">
-      <input id="tzgk-i-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();${o.ikinciTip==='MT'?`tzGkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx})`:`document.getElementById('tzgk-i-${rid}').focus()`};}">
+      ${o.ikinciTip==='MT'?'':`<input id="tzgk-i-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done"
         autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="${ikinciPh}"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();tzGkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx});}">
+        onkeydown="if(event.key==='Enter'){event.preventDefault();tzGkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx});}">`}
       <button type="button" class="gk-btn" id="tzgk-btn-${rid}" onclick="tzGkKaydet('${esc(String(r.siparisId))}',${r.kalemIdx})">Kaydet</button>
     </div>
     <div id="tzgk-son-${rid}"></div>
@@ -1523,7 +1534,7 @@ async function tzGkKaydet(siparisId,kalemIdx){
   const metre=sayiOku(mEl?.value);
   const ikinci=sayiOku(iEl?.value);
   if(metre<=0){showToast('Metre girin');mEl?.focus();return;}
-  if(ikinci<=0){showToast(tip==='KG'?'KG girin':'Adet girin');iEl?.focus();return;}
+  if(tip!=='MT'&&ikinci<=0){showToast(tip==='KG'?'KG girin':'Adet girin');iEl?.focus();return;} /* MT: yalnız metre */
   const kg=tip==='KG'?ikinci:0;
   const adet=tip==='ADET'?Math.round(ikinci):0;
   const eski=btn?btn.textContent:'';
