@@ -8,7 +8,9 @@ http.createServer((req, res) => {
   let p = decodeURIComponent((req.url || '/').split('?')[0]);
   if (p === '/') p = '/dokuma-mobil.html';
   const f = path.join(root, p.replace(/^\//, ''));
-  if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) {
+  const rel = path.relative(root, f);
+  /* startsWith(root) kardeş klasörü ("dokuma-panel-x") da geçirirdi; relative ile klasör dışına çıkış reddedilir. */
+  if (rel.startsWith('..') || path.isAbsolute(rel) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) {
     res.writeHead(404);
     return res.end('404 ' + p);
   }
