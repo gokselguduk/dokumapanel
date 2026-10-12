@@ -38,6 +38,9 @@ Panel kayıtları girisler[] içinde  kaynak:"DOKUMA_PANEL"  etiketi taşır;
 Tezgahlar sekmesinden (tezgah penceresinden) girilen top, Tezgah Planlama'nın
 yazdığı alanların aynısını da taşır: tezgah_id, tezgah_no, levent_id, is_id.
 Böylece ana program topun hangi tezgahtan çıktığını tahmin etmez.
+(12.10.2026: Tezgahlar sekmesi şimdilik KAPALI — tablette görünmez. Kod ve
+tezgah penceresi yerinde; yeniden açmak için dokuma-mobil.html içinde
+TEZGAH_SEKME_ACIK=true yapılır.)
 
 KALİTE DEPO (📦 Depo sekmesi, 12.10.2026)
 -----------------------------------------
@@ -50,11 +53,43 @@ kaynak DOKUMA_DEPO_SEVK → müşteri yüklemesi sayılmaz).
 Sevk dokuma girişlerini DEĞİŞTİRMEZ (eskiden ana program küçültüyordu;
 04.09'a kadarki 18 eski sevk böyle düşülmüş, ikinci kez düşülmez).
 
-Tabletten sevk: yalnız KONFEKSİYON'a, yalnız Dokuma Depo yetkisi olan
-kullanıcı (ya da yönetici). Yazmadan önce kalan taze okunur, fazlası
-yazılmaz. Yazılan: defter satırı + siparis_akis KUMAS_GELIS (ana programın
-yazdığının aynısı; Konfeksiyon Panel gelen kumaş olarak görür). KUMAS_GELIS
-yazılamazsa defter satırı geri alınır. İnternet yoksa sevk yapılmaz.
+Tabletten sevk: yalnız KONFEKSİYON'a; tablete giren herkes yapar
+(12.10.2026 kararı — kayıt kişinin adıyla tutulur). Yazmadan önce kalan
+taze okunur, fazlası yazılmaz. Yazılan: defter satırı + siparis_akis
+KUMAS_GELIS (ana programın yazdığının aynısı). KUMAS_GELIS yazılamazsa
+defter satırı geri alınır. İnternet yoksa sevk yapılmaz.
+
+KESİM ÖNÜNDE BEKLEYEN (12.10.2026)
+----------------------------------
+Buradan (ya da ana programın Dokuma Depo'sundan) Konfeksiyon'a sevk edilen
+mal, kesilene kadar iki yerde "Kesim önünde bekleyen" olarak görünür:
+    • Ana program  → Konfeksiyon → Kesim ekranının en üstü
+    • Konfeksiyon Panel → Üretim → Kesim sekmesinin üstü
+Kalem başına hesaptır (kayıt değişmez):
+    bekleyen = sevk edilen − o kalemin İLK sevkinden sonra girilen kesim
+Kesim nereden girilirse girilsin (ana program, Konfeksiyon tableti)
+kendiliğinden düşer. 12.10.2026'dan eski sevkler sayılmaz.
+
+SEVK EDİLENLER — GÜN GÜN LİSTE, DÜZELTME, SİLME (12.10.2026 akşam)
+------------------------------------------------------------------
+Depo sekmesinin altında "Sevk edilenler": seçilen günün Konfeksiyon sevkleri
+ve gün toplamı. ◀ ▶ ile gün gezilir, tarih kutusundan gün seçilir, "Bugün"
+bugüne döner (ileri güne gidilmez).
+    • Satırda yalnız "✏️ Düzenle"; açılınca Kaydet / 🗑 Sil / Vazgeç
+      (Girişler sekmesiyle aynı düzen — Sil düğmesi formun içinde).
+    • KİM: sevki yapan kişi ve yöneticiler; gün sınırı yok. Başkasının
+      sevki listede görünür ama Düzenle çıkmaz. (Kod: ddSevkDegistirebilirMi
+      — herkese açmak istenirse yalnız orası değişir.)
+    • Düzeltme: sevkin iki kaydı birlikte değişir (depo düşümü + Konfeksiyon
+      kaydı). Artırmada depodaki kalan yeniden okunur; fazlası yazılmaz.
+    • Kesilmiş mal geri alınmaz: sevkten sonra o kaleme kesim girildiyse
+      sevk silinmez, adet kesilenin altına inmez. Konfeksiyon "kesimi bitti"
+      dediyse hiç dokunulmaz. Böyle durumda ana programda yetkili düzeltir
+      (Konfeksiyon → Kesim → "↩ Sevki geri al").
+    • Silinen sevkin malı depoya döner, Konfeksiyon'da kesim önünden düşer.
+    • Her düzeltme / silme kişinin adıyla değişiklik geçmişine yazılır
+      (depo_hareket_iz; kaynak DOKUMA_SEVK_DUZELT / DOKUMA_SEVK_GERI) →
+      ana programda Günlük İşlemler ve zil.
 
 YENİ SÜRÜM KİLİTLİ TABLETE NASIL GELİR
 -------------------------------------

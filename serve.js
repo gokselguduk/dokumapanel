@@ -3,7 +3,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const root = __dirname;
-const port = 8767;
+/* Önizleme başka sohbette 8767'yi tutuyorsa PORT ile boş bir kapı verir; elle çalıştırınca yine 8767. */
+const port = Number(process.env.PORT) || 8767;
 http.createServer((req, res) => {
   let p = decodeURIComponent((req.url || '/').split('?')[0]);
   if (p === '/') p = '/dokuma-mobil.html';
