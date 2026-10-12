@@ -2601,7 +2601,9 @@ function karsilamaCiz(){
   /* Wi-Fi tabletten (kiosk 1.1 SimteksKiosk.wifiAc): Android'in Wi-Fi ekranı açılır, dönünce kilit geri gelir */
   const wifiVar=!!(window.SimteksKiosk&&typeof SimteksKiosk.wifiAc==='function');
   document.getElementById('ks-ag').innerHTML=(navigator.onLine!==false?'<span style="color:var(--green)">● İnternet bağlı</span>':'<span style="color:var(--red)">● İnternet yok</span>')
-    +(wifiVar?'<button type="button" class="ks-wifi" onclick="SimteksKiosk.wifiAc()">📶 Wi-Fi</button>':'');
+    +(wifiVar?'<button type="button" class="ks-wifi" onclick="SimteksKiosk.wifiAc()">📶 Wi-Fi</button>'
+      /* Eski tablet uygulaması (1.0, köprü yok) Android WebView'da: düğme neden yok, söylensin */
+      :(/; wv\)/.test(navigator.userAgent)?'<span class="ks-ince" style="margin-left:10px">Wi-Fi düğmesi için tablet uygulaması güncellenmeli</span>':''));
   pilCiz();
   const b=document.getElementById('ks-bilgi'),btn=document.getElementById('ks-btn');
   if(currentUser){
@@ -2641,7 +2643,7 @@ window.kioskUyandi=karsilamaGoster;
    kutu yok, top gönderilmiyor) sayfa yeni adresle (?s=sürüm → önbelleği atlar) yenilenir. Bekleyen toplar
    ve oturum tablette (localStorage) kalır. Aynı sürüm için en çok 10 dk'da bir denenir (döngü olmasın).
    Yerelde '__SURUM__' kalır → hiç bakılmaz. */
-const PANEL_SURUM='__SURUM__';
+const PANEL_SURUM='20261012-e98ce449';
 async function yeniSurumKontrol(){
   if(PANEL_SURUM.startsWith('__')||location.protocol==='file:'||navigator.onLine===false)return;
   try{

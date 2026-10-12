@@ -1,0 +1,17 @@
+SIMTEKS DOKUMA PANELİ — GITHUB PAKETİ
+=======================================
+
+Bu klasörün İÇİNDEKİ dosyaları GitHub'a yükleyin (7 dosya).
+
+  1) github.com → New repository (Private).
+  2) "uploading an existing file" → bu klasördeki HER ŞEYİ seçip
+     sürükleyin (klasörün kendisini değil, İÇİNDEKİLERİ).
+  3) Commit changes.
+
+BU PAKETTE YOK (bilerek)
+  erp-config.js → Supabase adresi/anahtarı. GitHub'a asla yüklenmez.
+  Panelin çalışması için bu dosyayı sunucuya/hosting'e AYRICA, elle
+  koymanız gerekir (ya da Konfeksiyon Panel'deki gibi Netlify/Vercel +
+  ortam değişkeni yöntemini kurmak isterseniz ayrıca söyleyin).
+
+Boyut: 7 dosya
