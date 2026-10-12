@@ -13,7 +13,8 @@
 <link rel="icon" type="image/png" href="./app-icon.png">
 <link rel="apple-touch-icon" href="./app-icon.png">
 <title>Dokuma Paneli · Simteks</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<!-- Sürüm SABİT: "@2" her yeni 2.x yayınında kendiliğinden değişiyordu (unpkg); tek bir hatalı sürüm ya da unpkg kesintisi üç platformu aynı anda bozardı. Yükseltmek için bu numarayı elle değiştirip deneyin. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="erp-config.js"></script>
 <style>
 /* Renk paleti konfeksiyon panelinden AYRI tutuldu (turkuaz/teal).
@@ -36,6 +37,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #topbar{display:none;position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:54px;align-items:center;gap:10px}
 .topbar-title{font-size:14px;font-weight:700;flex:1}
 .logout-btn{background:none;border:1px solid var(--border2);border-radius:8px;color:var(--text3);padding:5px 10px;font-size:11px;cursor:pointer}
+.yenile-btn{flex-shrink:0;white-space:nowrap;align-items:center;gap:4px;border-color:var(--accent);color:var(--accent2);font-weight:700}
 #app{display:none}
 .tab-bar{display:flex;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;scrollbar-width:none;position:sticky;top:54px;z-index:99}
 .tab-bar::-webkit-scrollbar{display:none}
@@ -121,6 +123,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gk-btn{background:var(--accent);border:none;border-radius:8px;color:#fff;padding:0 18px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
 .gk-btn:disabled{opacity:.5;cursor:not-allowed}
 .gk-son{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border2);font-size:10px;color:var(--text3)}
+.bugun-ozet{font-size:12px;color:var(--text2);padding:0 0 9px;margin-bottom:9px;border-bottom:1px solid var(--border)}
+.bugun-ozet strong{color:var(--text)}
+#bekleyen-serit{margin:10px 12px 0;padding:10px 12px;border:1px solid var(--amber);border-radius:12px;background:rgba(245,158,11,.1);font-size:12px;color:var(--text)}
+.bs-ust{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bs-ust>span{flex:1;min-width:150px}
+.bs-btn{background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;font-family:inherit}
+.bs-ana{background:var(--amber);border-color:var(--amber);color:#111}
+.bs-not{font-size:10px;color:var(--text3);margin-top:4px}
+.bs-satir{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border2);font-size:11px;color:var(--text3);line-height:1.45}
 .gk-son-geri{margin-left:auto;background:none;border:1px solid var(--border2);border-radius:6px;color:var(--amber);font-size:10px;font-weight:700;padding:4px 9px;cursor:pointer}
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:10px;color:var(--text3)}
 .spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
@@ -189,9 +200,54 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .gk-inp{font-size:18px;padding:12px 8px}
   .gk-btn{padding:0 26px;font-size:13px}
 }
+/* Kalite depo (12.10.2026) */
+.dd-ozet{font-size:12px;color:var(--text2);margin-top:10px;line-height:1.6}
+.dd-ozet strong{color:var(--text)}
+.dd-sip{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 13px 7px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.dd-kalem{padding:10px 13px;border-bottom:1px solid var(--border)}
+.dd-kalem:last-child{border-bottom:none}
+.dd-satir{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.dd-ad{font-size:12px;font-weight:700;color:var(--text2);line-height:1.35}
+.dd-mik{font-size:15px;font-weight:800;color:var(--accent2);white-space:nowrap}
+.dd-alt{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px;font-size:10px;color:var(--text3)}
+.dd-sevk-btn{background:var(--surface2);border:1px solid var(--accent);border-radius:8px;color:var(--accent2);font-size:12px;font-weight:800;padding:7px 14px;cursor:pointer;font-family:inherit}
+.dd-form{margin-top:9px;padding:10px;border:1px dashed var(--border2);border-radius:10px;background:var(--surface2)}
+.dd-form-bas{font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.5}
+.dd-form-alt{display:flex;gap:6px;margin-top:8px}
+.dd-daha{display:block;width:100%;margin:4px 0 14px;padding:12px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Karşılama sayfası + pil (kiosk tablet, 12.10.2026) */
+.pil-rozet{font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0}
+#karsilama{position:fixed;inset:0;z-index:9000;display:none;flex-direction:column;align-items:center;justify-content:space-between;padding:28px 24px calc(32px + env(safe-area-inset-bottom));background:radial-gradient(ellipse at 50% 0%,rgba(6,182,212,.18) 0%,transparent 60%),var(--bg);text-align:center;user-select:none;-webkit-user-select:none}
+.ks-ust{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:15px;font-weight:700;color:var(--text2)}
+.ks-ince{font-weight:500;color:var(--text3);font-size:12px}
+.ks-orta{display:flex;flex-direction:column;align-items:center}
+.ks-logo{height:76px;max-width:260px;object-fit:contain;filter:brightness(0) invert(1) drop-shadow(0 4px 16px rgba(6,182,212,.3));margin-bottom:14px}
+.ks-baslik{font-size:13px;font-weight:900;letter-spacing:6px;color:var(--text2);text-transform:uppercase}
+.ks-saat{font-size:112px;font-weight:800;line-height:1;margin-top:40px;font-variant-numeric:tabular-nums;letter-spacing:-2px}
+.ks-tarih{font-size:20px;color:var(--text2);margin-top:10px}
+.ks-bilgi{margin-top:40px;font-size:15px;color:var(--text2);line-height:1.75;max-width:520px}
+.ks-bilgi strong{color:var(--text)}
+.ks-merhaba{font-size:21px;color:var(--text);margin-bottom:6px}
+.ks-btn{width:100%;max-width:440px;padding:22px;font-size:20px;font-weight:800;border:none;border-radius:16px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));box-shadow:0 8px 28px rgba(6,182,212,.3);cursor:pointer;font-family:inherit}
+.ks-btn:active{transform:scale(.98);opacity:.9}
+@media (max-height:640px){.ks-saat{font-size:72px;margin-top:18px}.ks-bilgi{margin-top:18px}.ks-logo{height:52px}}
 </style>
 </head>
 <body>
+
+<!-- Karşılama: tablet açılınca / ekran kapanıp açılınca önce bu gelir (bkz. karsilamaGoster) -->
+<div id="karsilama" role="dialog" aria-label="Karşılama">
+  <div class="ks-ust"><span id="ks-pil"></span><span id="ks-ag"></span></div>
+  <div class="ks-orta">
+    <img src="https://simtekstekstil.com.tr/resimler/logo.png" alt="Simteks" class="ks-logo">
+    <div class="ks-baslik">Dokuma · Kalite Masası</div>
+    <div class="ks-saat" id="ks-saat">--:--</div>
+    <div class="ks-tarih" id="ks-tarih"></div>
+    <div class="ks-bilgi" id="ks-bilgi"></div>
+  </div>
+  <button type="button" class="ks-btn" id="ks-btn" onclick="karsilamaKapat()">Başla</button>
+</div>
 
 <div id="login-screen">
   <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:2rem">
@@ -219,6 +275,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div style="width:1px;height:18px;background:var(--border2);flex-shrink:0"></div>
   <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:var(--text);text-transform:uppercase;flex:1">DOKUMA</div>
   <div style="font-size:11px;color:var(--text3);flex:1;text-align:right" id="user-info"></div>
+  <span id="pil-rozet" class="pil-rozet" style="display:none"></span>
+  <button id="yenile-btn" type="button" class="logout-btn yenile-btn" onclick="manuelYenile()" title="Verileri yenile" style="display:none">🔄 Yenile</button>
   <button class="logout-btn" onclick="doLogout()">Çıkış</button>
 </div>
 
@@ -228,10 +286,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="tab-btn" onclick="switchTab('siparisler',1)">📋 Siparişler</button>
     <button class="tab-btn" onclick="switchTab('girisler',2)">📝 Girişler</button>
     <button class="tab-btn" onclick="switchTab('tezgahlar',3)">⚙️ Tezgahlar</button>
+    <button class="tab-btn" onclick="switchTab('depo',4)">📦 Depo</button>
   </div>
+  <div id="bekleyen-serit" style="display:none"></div>
 
   <div id="tab-giris" class="content">
     <div class="sel-card">
+      <div class="bugun-ozet" id="bugun-ozet"></div>
       <div class="sec-title" style="margin-bottom:7px">Top Girişi</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:9px;line-height:1.45">
         Kaliteden çıkan topun ürününü arayın, <strong>metresini</strong> ve
@@ -288,6 +349,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>
     </div>
   </div>
+
+  <div id="tab-depo" class="content" style="display:none">
+    <div class="sel-card">
+      <div class="sec-title" style="margin-bottom:7px">Kalite Depo</div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.45">
+        Kaliteden geçen, henüz sevk edilmemiş mal. Kalite girişi yapıldıkça burada
+        birikir, sevk edilince düşer. Ana programdaki <strong>Dokuma Depo</strong> ile aynı sayıdır.
+      </div>
+      <div class="dd-ozet" id="dd-ozet"></div>
+      <input id="dd-arama" class="field-input" type="search" placeholder="Ara: sipariş no, firma, ürün, desen, renk…"
+        autocomplete="off" autocapitalize="off" spellcheck="false" oninput="ddAramaDegisti(this.value)" style="margin:10px 0 0">
+    </div>
+    <div id="dd-liste-area">
+      <div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>
+    </div>
+  </div>
 </div>
 
 <div id="tezgah-modal" style="display:none;position:fixed;inset:0;z-index:200">
@@ -319,7 +396,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<button id="yenile-btn" type="button" onclick="manuelYenile()" title="Yenile" style="display:none;position:fixed;bottom:18px;right:18px;width:50px;height:50px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:20px;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer;z-index:500;align-items:center;justify-content:center">🔄</button>
 
 <div id="foto-modal">
   <div class="modal-backdrop" onclick="fotoModalKapat()"></div>
@@ -356,7 +432,7 @@ const KD_TIP='KD_DOKUMA';
 const KAYNAK='DOKUMA_PANEL';
 let sb=null,currentUser=null,siparisler=[],selectedSiparis=null;
 let kdCache={},kdCacheTs={};
-let aktifFilter='HEPSI',dokunanIds=new Set();
+let aktifFilter='HEPSI',dokunanIds=new Set(),_tumSiparisler=[];
 const KD_TTL_MS=15000;
 const UI_STATE_KEY='dokuma_ui_state';
 const SESSION_KEY='dokuma_session';
@@ -390,6 +466,14 @@ function normText(v){
 }
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
 function parseKalemler(s){try{const c=s?.cins;if(!c)return[];const p=typeof c==='string'?JSON.parse(c):c;return Array.isArray(p)?p:[];}catch{return[];}}
+/** Kalem adı: ad · desen · renk · ebat. Desen yazılmazsa aynı ad/renk/ebatlı kalemler (SP751: 4 × "PIKE · ham · 260")
+    ayırt edilemiyor, top yanlış kaleme girilebiliyordu. Kumaş satırında öncü kalemin deseni yazılmaz. */
+function kalemEtiket(k,idx){
+  k=k||{};
+  const ad=k.ad||k.kod||('Kalem '+((idx??0)+1));
+  const desen=!k.__kumas&&k.desen&&normText(k.desen)!==normText(ad)?k.desen:'';
+  return[ad,desen,k.renk,k.ebat||k.olcu].filter(Boolean).join(' · ');
+}
 function parseSno(s){const m=String(s||'').toUpperCase().match(/(\d+)$/);return m?+m[1]:0;}
 function compareSno(a,b){return parseSno(a)-parseSno(b);}
 function kullaniciAdi(){return String(currentUser?.display_name||currentUser?.username||'').trim();}
@@ -471,7 +555,7 @@ async function doLogin(){
     /* Ana programdaki yetki kodu ile aynı: Dokuma grubu → DOKUMA_TAKIP */
     if(!isAdmin&&!allowed.includes('DOKUMA_TAKIP')){showLoginErr('Dokuma yetkisi yok.');btn.disabled=false;btn.textContent='Giriş Yap';return;}
     currentUser={...user,allowed};
-    localStorage.setItem(SESSION_KEY,JSON.stringify({user:currentUser,ts:Date.now()}));
+    localStorage.setItem(SESSION_KEY,JSON.stringify({user:currentUser,ts:Date.now(),token:(result&&result.token)||''}));
     startApp();
   }catch(e){showLoginErr('Bağlantı hatası: '+(e.message||e));btn.disabled=false;btn.textContent='Giriş Yap';}
 }
@@ -479,6 +563,9 @@ function normalizeAllowed(r){if(!r)return[];if(Array.isArray(r))return r;try{con
 function showLoginErr(m){const el=document.getElementById('login-err');el.textContent=m;el.style.display='block';}
 function showErr(m){document.getElementById('login-screen').innerHTML+=`<div style="margin-top:20px;padding:14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;color:#ef4444;font-size:13px;max-width:340px;text-align:center">${esc(m)}</div>`;}
 function doLogout(){
+  const bek=bekleyenler().length;
+  if(bek&&!confirm(`${bek} top henüz gönderilmedi.\nTablette saklanır; bu tablette yeniden giriş yapılınca gönderilir.\n\nÇıkış yapılsın mı?`))return;
+  if(typeof panelCikisBildir==='function')panelCikisBildir();
   localStorage.removeItem(SESSION_KEY);localStorage.removeItem(UI_STATE_KEY);
   currentUser=null;siparisler=[];
   document.getElementById('app').style.display='none';
@@ -490,6 +577,8 @@ function tryRestoreSession(){
   try{
     const r=localStorage.getItem(SESSION_KEY);if(!r)return false;
     const s=JSON.parse(r);if(!s.user||!s.ts)return false;
+    /* 02.10: anahtarsız eski oturum bir kez girişe düşer — yönetici listesinde isimle görünsün */
+    if(!s.token){localStorage.removeItem(SESSION_KEY);return false;}
     if(Date.now()-s.ts>8*60*60*1000){localStorage.removeItem(SESSION_KEY);return false;}
     currentUser=s.user;return true;
   }catch{return false;}
@@ -502,15 +591,19 @@ async function startApp(){
   document.getElementById('user-info').textContent=kullaniciAdi();
   const yb=document.getElementById('yenile-btn');if(yb)yb.style.display='flex';
   await loadSiparisler();
+  bugunOzetCiz();bekleyenSeritCiz();
+  bekleyenGonder();
   const st=readUiState();
-  const tab=['giris','siparisler','girisler','tezgahlar'].includes(st?.activeTab)?st.activeTab:'giris';
+  const tab=['giris','siparisler','girisler','tezgahlar','depo'].includes(st?.activeTab)?st.activeTab:'giris';
   switchTab(tab);
   const ara=document.getElementById('ua-arama');
-  if(ara&&tab==='giris')setTimeout(()=>ara.focus(),120);
+  /* karşılama açıksa klavye arkada açılmasın — Başla'da odaklanır */
+  if(ara&&tab==='giris'&&!karsilamaAcik())setTimeout(()=>ara.focus(),120);
 }
 
 /* ── Sipariş listesi ─────────────────────────────────────────────── */
-async function loadSiparisler(){
+/** sessiz: arka plan tazelemesi — hata olursa liste ekranı bozulmaz, eski veri kalır. */
+async function loadSiparisler(sessiz){
   try{
     /* Masaüstü Dokuma Takip ile aynı kapsam: TAMAMLANDI dışındaki tüm siparişler.
        Dokuma her üretim yerine (Simteks / fason / doğrudan sevk) çalışabildiği için
@@ -526,6 +619,8 @@ async function loadSiparisler(){
     ]);
     if(sipRes.error)throw sipRes.error;
     if(akisRes.error)throw akisRes.error;
+    _sipIz={sayi:(sipRes.data||[]).length,son:(sipRes.data||[]).reduce((m,s)=>String(s.updated_at||'')>m?String(s.updated_at||''):m,'')};
+    _tumSiparisler=sipRes.data||[];
     siparisler=(sipRes.data||[]).filter(s=>!siparisKapaliMi(s.durum));
     dokunanIds=new Set();
     (akisRes.data||[]).forEach(r=>dokunanIds.add(String(r.siparis_id)));
@@ -533,10 +628,39 @@ async function loadSiparisler(){
     renderSiparisler();
     return true;
   }catch(e){
+    if(sessiz)return false;
     document.getElementById('siparis-liste-card').innerHTML=`<div class="empty"><div class="icon">⚠️</div>Yüklenemedi: ${esc(e.message||e)}</div>`;
     return false;
   }
 }
+
+/* Sipariş listesi kendiliğinden tazelenir (12.10.2026): tablet bütün gün açık kalıyor; gün içinde açılan
+   sipariş ya da değişen kalem "Yenile"ye basılmadıkça aramada çıkmıyordu. 3 dk'da bir yalnız iki küçük
+   sorgu (sipariş sayısı + en son değişiklik saati, <1 KB); liste (~470 KB) yalnız değişiklik varsa ve
+   kimse yazmıyorken (30 sn dokunulmamış, dolu giriş kutusu yok) yeniden çekilir. Ekrandaki arama
+   sonuçları yerinde kalır (yeni sipariş bir sonraki aramada çıkar); tablet uyanınca da bakılır. */
+let _sipIz=null,_sipTazeleniyor=false,_sonEtkilesim=Date.now();
+['pointerdown','keydown','touchstart'].forEach(t=>window.addEventListener(t,()=>{_sonEtkilesim=Date.now();},{passive:true,capture:true}));
+function panelMesgulMu(){
+  if(Date.now()-_sonEtkilesim<30000)return true;
+  /* yalnız ekranda görünen kutu — kapatılan tezgah penceresinde kalan değer tazelemeyi hep durdurmasın */
+  return[...document.querySelectorAll('.gk-inp')].some(i=>i.offsetParent!==null&&String(i.value||'').trim());
+}
+async function siparisDegisimKontrol(){
+  if(_sipTazeleniyor||!sb||!currentUser||!_sipIz||navigator.onLine===false||document.hidden||panelMesgulMu())return;
+  _sipTazeleniyor=true;
+  try{
+    const[sayRes,sonRes]=await Promise.all([
+      sb.from('siparisler').select('id',{count:'exact',head:true}),
+      sb.from('siparisler').select('updated_at').order('updated_at',{ascending:false,nullsFirst:false}).limit(1)
+    ]);
+    if(sayRes.error||sonRes.error)return;
+    if(sayRes.count===_sipIz.sayi&&String(sonRes.data?.[0]?.updated_at||'')===_sipIz.son)return;
+    if(!panelMesgulMu())await loadSiparisler(true);
+  }catch(e){}finally{_sipTazeleniyor=false;}
+}
+setInterval(siparisDegisimKontrol,180000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(siparisDegisimKontrol,1500);});
 
 /** Sayfa sayfa çeker (range). sorguKur her sayfada TAZE bir sorgu üretmeli. */
 async function tumSatirlariCek(sorguKur){
@@ -560,7 +684,7 @@ let _sipHaystackCache=new Map();
 function sipHaystack(sip){
   let h=_sipHaystackCache.get(sip.id);
   if(h===undefined){
-    const p=parseKalemler(sip).flatMap(k=>[k.ad,k.kod,k.renk,k.ebat,k.olcu]);
+    const p=parseKalemler(sip).flatMap(k=>[k.ad,k.kod,k.desen,k.renk,k.ebat,k.olcu]);
     h=normText([sip.sno,sip.firma,sip.musteri,...p].join(' '));
     _sipHaystackCache.set(sip.id,h);
   }
@@ -794,7 +918,7 @@ async function renderModalTab(t){
     const u=urunler[i]||{};
     const o=kalemOzet(k,u);
     return `<div class="gk" style="margin-bottom:8px">
-      <div class="gk-ad">${esc([k.ad||k.kod||('Kalem '+(i+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · '))}</div>
+      <div class="gk-ad">${esc(kalemEtiket(k,i))}</div>
       <div class="gk-say">
         <div><div class="gk-say-v">${fmt(o.hedef,0)} <span style="font-size:9px;font-weight:600;color:var(--text3)">${esc(o.hedefBirim)}</span></div><div class="gk-say-l">Sipariş</div></div>
         <div><div class="gk-say-v" style="color:var(--accent2)">${fmt(o.metre,1)} <span style="font-size:9px;font-weight:600;opacity:.7">m</span></div><div class="gk-say-l">Dokunan metre</div></div>
@@ -893,26 +1017,43 @@ function kdOnbellegeYaz(siparisId,kd){
   kdCacheTs[KD_TIP+'_'+siparisId]=Date.now();
 }
 
-/** Tek top ekler. Başarılıysa yazılan giriş nesnesini döner. */
-async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet){
-  /* Yazma kapısı: sipariş birimine uymayan alan yazılmaz (ADET: m+adet, KG: m+kg, MT: yalnız m). */
+/** Yeni topun kimliği: gid + girildiği an + giren. Bekleyen top sonradan gönderilse de
+    bu değerlerle yazılır — tarih, internetin geldiği an değil topun girildiği andır. */
+function yeniGirisKimligi(){
+  const now=new Date();
+  return{
+    gid:'dp-'+now.getTime().toString(36)+'-'+Math.random().toString(36).slice(2,8),
+    tarih:now.toLocaleString('tr-TR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    tarih_iso:now.toISOString(),
+    user:kullaniciAdi()
+  };
+}
+
+/** Tek top ekler. Başarılıysa yazılan giriş nesnesini döner.
+    kimlik: yeniGirisKimligi() çıktısı (verilmezse yenisi üretilir). */
+async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet,kimlik){
+  kimlik=kimlik||yeniGirisKimligi();
+  /* Yazma kapısı: sipariş birimine uymayan alan yazılmaz (ADET: m+adet, KG: m+kg, MT: yalnız m).
+     Bekleyen top gönderilirken sipariş listeden düşmüş olabilir — girildiği andaki birim kullanılır. */
   {
     const sip=siparisler.find(x=>String(x.id)===String(siparisId));
-    const tip=ikinciBirimTip(parseKalemler(sip||{})[kalemIdx]||{});
+    const tip=sip?ikinciBirimTip(parseKalemler(sip)[kalemIdx]||{}):(kimlik.tip||'ADET');
     if(tip!=='KG')kg=0;
     if(tip!=='ADET')adet=0;
   }
-  const now=new Date();
-  const kullanici=kullaniciAdi();
-  const gid='dp-'+now.getTime().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+  const gid=kimlik.gid;
+  const kullanici=kimlik.user||'';
   /* Alan adları masaüstündeki dtKaydetKalemler ile birebir aynı olmalı;
      ek alanlar (kaynak, gid) diğer programlarda görmezden gelinir. */
   const giris={
     metre:metre||null,
     kg:kg||null,
     adet:adet||null,
-    tarih:now.toLocaleString('tr-TR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-    tarih_iso:now.toISOString(),
+    tarih:kimlik.tarih,
+    tarih_iso:kimlik.tarih_iso,
+    ...(kimlik.kumas?{kumas:kimlik.kumas}:{}),
+    ...(kimlik.tezgah||{}),
+    ...(kimlik.ikiz_onaylandi?{ikiz_onaylandi:kimlik.ikiz_onaylandi}:{}),
     kaynak:KAYNAK,
     gid,
     ...(kullanici?{user:kullanici,kullanici}:{})
@@ -941,6 +1082,209 @@ async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet){
   }
   throw sonHata||new Error('Kayıt yapılamadı');
 }
+
+/* ── Bugünün özeti + internet yokken bekleyen toplar ─────────────────
+   İkisi de YALNIZ bu tabletin tarayıcı belleğinde (localStorage) — veritabanına ek
+   sorgu yok. Özet "bu tabletten bugün girilen" topları sayar; başka cihazdan yapılan
+   değişikliği bilmez. Bekleyen top gid'iyle yazıldığı için (dokumaGirisEkle aynı gid'i
+   ikinci kez eklemez) cevabı kaybolan bir istek yeniden gönderilince iki kez yazılmaz. */
+const BUGUN_KEY='dokuma_bugun_v1';
+const BEKLEYEN_KEY='dokuma_bekleyen_v1';
+function yerelOku(k,vars){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?vars:v;}catch{return vars;}}
+function yerelYaz(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function bugunGunu(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function bugunKayitlari(){const b=yerelOku(BUGUN_KEY,null);return b&&b.gun===bugunGunu()&&Array.isArray(b.kayitlar)?b.kayitlar:[];}
+function bugunYaz(l){yerelYaz(BUGUN_KEY,{gun:bugunGunu(),kayitlar:l});bugunOzetCiz();}
+function bugunEkle(g){
+  if(!g?.gid)return;
+  const l=bugunKayitlari().filter(x=>x.gid!==g.gid);
+  l.push({gid:g.gid,metre:parseFloat(g.metre)||0,kg:parseFloat(g.kg)||0,adet:parseInt(g.adet,10)||0});
+  bugunYaz(l);
+}
+function bugunGuncelle(gid,yeni){
+  const l=bugunKayitlari();const x=l.find(k=>k.gid===gid);if(!x)return;
+  x.metre=parseFloat(yeni.metre)||0;x.kg=parseFloat(yeni.kg)||0;x.adet=parseInt(yeni.adet,10)||0;
+  bugunYaz(l);
+}
+function bugunCikar(gid){const l=bugunKayitlari();if(l.some(k=>k.gid===gid))bugunYaz(l.filter(k=>k.gid!==gid));}
+function bugunOzetCiz(){
+  const el=document.getElementById('bugun-ozet');
+  if(!el)return;
+  const l=bugunKayitlari();
+  if(!l.length){el.innerHTML=`<span style="color:var(--text3)">📊 Bugün bu tabletten henüz top girilmedi</span>`;return;}
+  const t=l.reduce((a,k)=>({m:a.m+k.metre,kg:a.kg+k.kg,ad:a.ad+k.adet}),{m:0,kg:0,ad:0});
+  const bek=bekleyenler().length;
+  const p=[`<strong>${l.length}</strong> top`,`<strong>${fmt(t.m,1)}</strong> m`];
+  if(t.kg)p.push(`<strong>${fmt(t.kg,1)}</strong> kg`);
+  if(t.ad)p.push(`<strong>${fmt(t.ad,0)}</strong> adet`);
+  el.innerHTML=`📊 Bugün bu tabletten: ${p.join(' · ')}${bek?` <span style="color:var(--amber)">(${bek} top bekliyor)</span>`:''}`;
+}
+
+function bekleyenler(){const l=yerelOku(BEKLEYEN_KEY,[]);return Array.isArray(l)?l:[];}
+function bekleyenYaz(l){yerelYaz(BEKLEYEN_KEY,l);bekleyenSeritCiz();bugunOzetCiz();}
+/** Bağlantı hatası mı (sıraya alınır) yoksa kayıt hatası mı (kullanıcıya gösterilir)? */
+function agHatasiMi(e){
+  if(navigator.onLine===false)return true;
+  return /failed to fetch|networkerror|network request failed|load failed|err_internet|err_network|err_name_not_resolved|timed? ?out/i.test(String(e?.message||e||''));
+}
+
+/* İKİZ TOP UYARISI (D-09, 09.10.2026) — ana programdaki erpDokumaIkizOnay ile aynı kural ve süre: aynı
+   kaleme aynı metre + kg + adet son 15 dakikada (bu tablet, başka tablet, Dokuma Takip, Tezgah Planlama)
+   girildiyse yazmadan önce taze veriden bakılıp sorulur. Yalnız elle girilen topta — bekleyen top
+   gönderilirken sorulmaz. Okunamazsa (internet yok) giriş durmaz. Vazgeçilirse null; onaylanan ikizde iz. */
+const DOKUMA_IKIZ_DK=15;
+async function dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet){
+  if(navigator.onLine===false||!sb)return{}; /* internet yok: top beklemeden sıraya girsin */
+  const sip=siparisler.find(x=>String(x.id)===String(siparisId));
+  const tip=sip?ikinciBirimTip(parseKalemler(sip)[kalemIdx]||{}):'';
+  if(tip!=='KG')kg=0;
+  if(tip!=='ADET')adet=0;
+  const say=v=>Math.round((parseFloat(v)||0)*1000);
+  if(!say(metre)&&!say(kg)&&!say(adet))return{};
+  let kd;
+  try{kd=(await kdDokumaOkuTaze(siparisId)).kd||{};}catch(e){return{};}
+  const u=(kd.urunler||{})[kalemIdx]||{};
+  const sinir=Date.now()-DOKUMA_IKIZ_DK*60000;
+  const es=(Array.isArray(u.girisler)?u.girisler:[]).filter(g=>g&&Date.parse(g.tarih_iso||'')>=sinir
+    &&say(g.metre)===say(metre)&&say(g.kg)===say(kg)&&say(g.adet)===say(adet));
+  if(!es.length)return{};
+  const yer=g=>({DOKUMA_PANEL:'Dokuma Panel',TEZGAH_PLANLAMA:'Tezgah Planlama'})[g.kaynak]||(String(g.gid||'').startsWith('dt-')?'Dokuma Takip':(g.kaynak||'kaynak yok'));
+  const k=parseKalemler(sip||{})[kalemIdx]||{};
+  const ad=kalemEtiket(k,kalemIdx);
+  const ok=confirm('⚠ AYNI KALEME AYNI TOP SON '+DOKUMA_IKIZ_DK+' DAKİKADA GİRİLMİŞ\n\n'+(sip?.sno||'')+' · '+ad
+    +'\nGirmek istediğiniz: '+girisMiktarOzeti({metre,kg,adet})+'\n'
+    +es.map(g=>{const t=new Date(g.tarih_iso);return '  • '+(Number.isNaN(t.getTime())?'':t.toLocaleString('tr-TR'))+' · '
+      +girisMiktarOzeti(g)+' · '+yer(g)+(g.tezgah_no?' · tezgah '+g.tezgah_no:'')+((g.user||g.kullanici)?' · '+(g.user||g.kullanici):'');}).join('\n')
+    +'\n\nAynı topu ikinci kez giriyorsanız İPTAL edin — yoksa dokunan iki kez sayılır.\nGerçekten ayrı bir topsa TAMAM ile kaydedin.');
+  return ok?{ts:new Date().toISOString(),ikiz_gid:es.map(g=>g.gid||g.tarih_iso)}:null;
+}
+
+/** Topu yazar; internet yoksa tablette sıraya alır. {bekliyor, giris} döner.
+    Bağlantı dışı hatalar (ör. aynı anda yazma çakışması) fırlatılır — sessizce sıraya girmez. */
+async function topKaydet(siparisId,kalemIdx,metre,kg,adet,satir){
+  /* İkiz top uyarısı — vazgeçilirse hiçbir şey yazılmaz, sıraya da girmez */
+  const ikiz=await dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet);
+  if(ikiz===null){const e=new Error('İkiz top uyarısı — kayıt yapılmadı.');e.ikizIptal=true;throw e;}
+  const kimlik=yeniGirisKimligi();
+  if(ikiz.ts)kimlik.ikiz_onaylandi=ikiz;
+  kimlik.tip=satir?.ozet?.ikinciTip||'';
+  if(satir?.kumas)kimlik.kumas=satir.kumas;
+  if(satir?.tezgah)kimlik.tezgah=satir.tezgah;
+  try{
+    const giris=await dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet,kimlik);
+    bugunEkle(giris);
+    return{bekliyor:false,giris};
+  }catch(e){
+    if(!agHatasiMi(e))throw e;
+    const kayit={...kimlik,siparisId:String(siparisId),kalemIdx,metre,kg,adet,
+      sno:satir?.sno||'',etiket:satir?.etiket||'',bekliyor:true};
+    bekleyenYaz([...bekleyenler().filter(x=>x.gid!==kayit.gid),kayit]);
+    bugunEkle(kayit);
+    return{bekliyor:true,giris:kayit};
+  }
+}
+
+let _bekleyenGonderiliyor=false;
+/** Sıradaki topları sırayla gönderir; bağlantı yine koparsa durur, kalanlar bekler.
+    Bağlantı dışı hata alan top silinmez: sebebiyle listede işaretli kalır. */
+async function bekleyenGonder(elle){
+  if(_bekleyenGonderiliyor||!sb||!currentUser)return;
+  if(!bekleyenler().length){if(elle)showToast('Bekleyen top yok',1500);return;}
+  _bekleyenGonderiliyor=true;bekleyenSeritCiz();
+  let gonderilen=0,agYok=false;
+  try{
+    for(const k of bekleyenler()){
+      try{
+        const giris=await dokumaGirisEkle(k.siparisId,k.kalemIdx,k.metre,k.kg,k.adet,k);
+        bekleyenYaz(bekleyenler().filter(x=>x.gid!==k.gid));
+        gonderilen++;
+        kartSonKayitGoster(k.siparisId,k.kalemIdx,giris);
+      }catch(e){
+        if(agHatasiMi(e)){agYok=true;break;}
+        bekleyenYaz(bekleyenler().map(x=>x.gid===k.gid?{...x,hata:String(e?.message||e)}:x));
+      }
+    }
+  }finally{_bekleyenGonderiliyor=false;bekleyenSeritCiz();}
+  if(gonderilen){_vgCache=null;_ddCacheTs=0;showToast(`✅ Bekleyen ${gonderilen} top gönderildi`,2600);}
+  else if(elle&&agYok)showToast('📡 Hâlâ internet yok — toplar tablette bekliyor',2600);
+}
+
+function bekleyenVazgec(gid){
+  const k=bekleyenler().find(x=>x.gid===gid);
+  if(!k){showToast('Bu top zaten gönderildi — silmek için Girişler sekmesini kullanın',3000);return;}
+  if(!confirm(`Bu top GÖNDERİLMEDEN silinsin mi?\n\n${k.sno} · ${k.etiket}\n${girisMiktarOzeti(k)} · ${String(k.tarih||'').slice(11)}`))return;
+  bekleyenYaz(bekleyenler().filter(x=>x.gid!==gid));
+  bugunCikar(gid);
+  document.querySelectorAll(`[data-son-gid="${gid}"]`).forEach(el=>{el.innerHTML='';el.removeAttribute('data-son-gid');});
+  showToast('Bekleyen top silindi',1800);
+}
+
+let _bekleyenListeAcik=false;
+function bekleyenListeDegistir(){_bekleyenListeAcik=!_bekleyenListeAcik;bekleyenSeritCiz();}
+function bekleyenSeritCiz(){
+  const el=document.getElementById('bekleyen-serit');
+  if(!el)return;
+  const l=bekleyenler();
+  if(!l.length){el.style.display='none';el.innerHTML='';_bekleyenListeAcik=false;return;}
+  const hatali=l.filter(k=>k.hata).length;
+  el.style.display='block';
+  el.innerHTML=`<div class="bs-ust">
+      <span>${_bekleyenGonderiliyor?'⏳ Gönderiliyor…':`📡 <strong>${l.length} top</strong> internete gönderilmeyi bekliyor`}${hatali?` · <span style="color:var(--red)">${hatali} top gönderilemedi</span>`:''}</span>
+      <button type="button" class="bs-btn" onclick="bekleyenListeDegistir()">${_bekleyenListeAcik?'Gizle':'Liste'}</button>
+      <button type="button" class="bs-btn bs-ana" onclick="bekleyenGonder(true)" ${_bekleyenGonderiliyor?'disabled':''}>Şimdi gönder</button>
+    </div>
+    <div class="bs-not">Bağlantı gelince kendiliğinden gönderilir. Tablet kapansa da silinmez.</div>
+    ${_bekleyenListeAcik?l.map(k=>`<div class="bs-satir">
+        <div style="flex:1"><strong>${esc(k.sno||'')}</strong> · ${esc(k.etiket||'')}<br>
+          <span style="color:var(--text2)">${esc(girisMiktarOzeti(k))}</span> · ${esc(String(k.tarih||'').slice(0,16))}
+          ${k.hata?`<br><span style="color:var(--red)">Gönderilemedi: ${esc(k.hata)}</span>`:''}</div>
+        <button type="button" class="gk-son-geri" onclick="bekleyenVazgec('${esc(k.gid)}')">Vazgeç</button>
+      </div>`).join(''):''}`;
+}
+
+/** Kartın altındaki "son kayıt" satırı — gönderilmiş ya da bekleyen top. pfx: 'gk' | 'tzgk' */
+function sonKayitHtml(g,siparisId,kalemIdx,pfx){
+  const miktar=esc(girisMiktarOzeti(g));
+  const saat=esc(String(g.tarih||'').slice(11));
+  if(g.bekliyor)return `<div class="gk-son" style="color:var(--amber)">
+      <span>⏳ İnternet yok — tablette bekliyor: <strong>${miktar}</strong> · ${saat}</span>
+      <button type="button" class="gk-son-geri" onclick="bekleyenVazgec('${esc(g.gid)}')">Vazgeç</button>
+    </div>`;
+  const fn=pfx==='tzgk'?'tzGkGeriAl':'gkGeriAl';
+  return `<div class="gk-son">
+      <span>✓ Son kayıt: <strong style="color:var(--text2)">${miktar}</strong> · ${saat}</span>
+      <button type="button" class="gk-son-geri" onclick="${fn}(this,'${esc(String(siparisId))}',${kalemIdx},'${esc(g.gid)}')">↩ Geri al</button>
+    </div>`;
+}
+/** Bekleyen top gönderilince ekrandaki kartı (açıksa) günceller. */
+function kartSonKayitGoster(siparisId,kalemIdx,giris){
+  const rid=`${siparisId}-${kalemIdx}`;
+  gkKartTazele(siparisId,kalemIdx,giris,true);
+  const tz=_tzAktifSatirlar.get(rid);
+  if(tz){
+    const kd=kdCache[KD_TIP+'_'+siparisId]||{};
+    tz.ozet=kalemOzet(tz.kalem,kd?.urunler?.[kalemIdx]||{});
+    const sayEl=document.getElementById('tzgk-say-'+rid);
+    if(sayEl)sayEl.innerHTML=gkSayacHtml(tz.ozet);
+    const sonEl=document.getElementById('tzgk-son-'+rid);
+    if(sonEl&&sonEl.getAttribute('data-son-gid')===giris.gid)sonEl.innerHTML=sonKayitHtml(giris,siparisId,kalemIdx,'tzgk');
+  }
+}
+setInterval(()=>{if(bekleyenler().length&&navigator.onLine!==false)bekleyenGonder();},20000);
+/* Aktif kullanıcılar (01.10.2026): dakikada bir nabız — ana program yöneticisi kimin hangi sekmede
+   çalıştığını görür. Sunucu en çok ~50 sn'de bir yazar; fonksiyon kurulmamışsa sessizce geçer. */
+let _nabizSon=0;
+function panelKanalIdUret(){return(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'k'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);}let _kanalId=panelKanalIdUret();let _kanalParamYok=false,_kanal=null,_kanalHazir=false,_kanalEkran=null;
+function panelEkran(){return typeof aktifTabId==='function'?String(aktifTabId()||''):'';}
+function panelNabiz(){try{if(!sb||!currentUser)return;const o=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');if(!o.token)return;if(Date.now()-_nabizSon<55000)return;_nabizSon=Date.now();const g={p_token:o.token,p_platform:'DOKUMA_PANEL',p_ekran:panelEkran()};if(!_kanalParamYok)g.p_kanal=_kanalId;sb.rpc('erp_session_nabiz',g).then(r=>{if(r&&r.error&&g.p_kanal&&/PGRST202|could not find/i.test(String(r.error.code)+' '+String(r.error.message))){_kanalParamYok=true;delete g.p_kanal;sb.rpc('erp_session_nabiz',g).then(()=>{},()=>{});}},()=>{});}catch(e){}}
+/* Anlık çevrimiçi: canlı kanalda yalnız rastgele kimlik + cihaz + sekme dolaşır (isim yok); kime ait olduğunu yalnız yönetici eşler */
+function panelKanal(){try{if(!sb||!currentUser||typeof sb.channel!=='function')return;if(!_kanal){_kanal=sb.channel('erp-cevrimici',{config:{presence:{key:_kanalId}}});_kanal.subscribe(d=>{_kanalHazir=d==='SUBSCRIBED';if(_kanalHazir){_kanalEkran=null;panelKanal();panelNabiz();}});return;}if(!_kanalHazir)return;const e=panelEkran();if(e===_kanalEkran)return;_kanalEkran=e;_kanal.track({p:'DOKUMA_PANEL',e,t:Date.now()});}catch(e){}}
+setInterval(panelKanal,4000);
+setInterval(panelNabiz,60000);setTimeout(panelNabiz,5000);
+/* Çıkış (02.10.2026): oturum sunucuda kapanır, cihaz canlı kanaldan hemen düşer ve kimliği yenilenir —
+   ortak telefonda / tablette sonraki kişi öncekinin yerine ayrı görünür, çıkan kişi çevrimiçi kalmaz */
+function panelCikisBildir(){try{const o=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');if(sb&&o.token)sb.rpc('erp_logout',{p_token:o.token}).then(()=>{},()=>{});}catch(e){}try{const k=_kanal;_kanal=null;_kanalHazir=false;_kanalEkran=null;if(k)Promise.resolve().then(()=>k.untrack()).catch(()=>{}).then(()=>{try{sb.removeChannel(k);}catch(e){}});}catch(e){}_kanalId=panelKanalIdUret();_nabizSon=0;}
+window.addEventListener('online',()=>bekleyenGonder());
 
 /* ── Denetim izi ──────────────────────────────────────────────────
    "Kim, ne zaman, neyi değiştirdi/sildi" iki yerde birden tutulur:
@@ -975,7 +1319,8 @@ async function dokumaDenetimYaz(tip,ctx){
     const not=tip===DOKUMA_DENETIM_ISLEM.SIL
       ? `Dokuma kaydı silindi · ${girisMiktarOzeti(ctx.eski)} · giren: ${ctx.girisUser||'—'} (${ctx.girisTarih||'—'})`
       : `Dokuma kaydı düzeltildi · ${girisMiktarOzeti(ctx.eski)} → ${girisMiktarOzeti(ctx.yeni)} · giren: ${ctx.girisUser||'—'} (${ctx.girisTarih||'—'})`;
-    await sb.from('siparis_akis').insert([{
+    /* supabase-js hatada fırlatmaz — {error} okunmazsa aşağıdaki uyarı hiç görünmüyordu. */
+    const{error:denetimHata}=await sb.from('siparis_akis').insert([{
       siparis_id:coerceSiparisIdForDb(ctx.siparisId),
       islem:tip,
       kalem_ad:ctx.kalemAd||'Dokuma',
@@ -993,6 +1338,7 @@ async function dokumaDenetimYaz(tip,ctx){
         note:not
       })
     }]);
+    if(denetimHata)throw denetimHata;
   }catch(e){
     console.warn('denetim satırı yazılamadı',e.message||e);
     showToast('⚠ İşlem yapıldı ama denetim kaydı yazılamadı',3200);
@@ -1150,7 +1496,7 @@ function urunAraHaystack(sip,k,idx){
   const ck=sip.id+'|'+idx;
   let h=_uaHaystackCache.get(ck);
   if(h===undefined){
-    h=normText([sip.sno,sip.firma,sip.musteri,k.ad,k.kod,k.renk,k.ebat,k.olcu].join(' '));
+    h=normText([sip.sno,sip.firma,sip.musteri,k.ad,k.kod,k.desen,k.renk,k.ebat,k.olcu].join(' '));
     _uaHaystackCache.set(ck,h);
   }
   return h;
@@ -1168,17 +1514,47 @@ async function urunAraSatirlariGetir(q){
   });
   eslesen.sort((a,b)=>compareSno(a.sip.sno,b.sip.sno));
   const top=eslesen.slice(0,40);
-  await getKdBatch(top.map(e=>e.sip.id),KD_TIP);
+  await Promise.all([getKdBatch(top.map(e=>e.sip.id),KD_TIP),getKdBatch(top.map(e=>e.sip.id),'KD_URUN_AGACI')]);
+  const kumasGorulen=new Set();
   return top.map(({sip,k,idx})=>{
+    /* Kumaşa bağlı kalem tek tek değil, kumaş olarak (adıyla, yalnız metre) çıkar */
+    const kum=tzKalemKumasi(sip,idx);
+    if(kum){
+      const anahtar=sip.id+'|'+kum.id;
+      if(kumasGorulen.has(anahtar))return null;
+      kumasGorulen.add(anahtar);
+      const kk={...(parseKalemler(sip)[kum.oncuKi]||{}),ad:kum.ad,renk:'HAM',ebat:kum.kalemSay+' kalem',olcu:'',birim:'MT',miktar:0,__kumas:kum.id};
+      const ukd=kdCache[KD_TIP+'_'+sip.id]||{};
+      return{siparisId:sip.id,sno:sip.sno||String(sip.id),firma:sip.firma||sip.musteri||'—',
+        kalemIdx:kum.oncuKi,kalem:kk,kumas:kum.id,etiket:[kk.ad,'HAM',kk.ebat].join(' · '),ozet:kalemOzet(kk,ukd?.urunler?.[kum.oncuKi]||{})};
+    }
     const kd=kdCache[KD_TIP+'_'+sip.id]||{};
     const u=kd?.urunler?.[idx]||{};
     return {
       siparisId:sip.id,sno:sip.sno||String(sip.id),firma:sip.firma||sip.musteri||'—',
       kalemIdx:idx,kalem:k,
-      etiket:[k.ad||k.kod||('Kalem '+(idx+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · '),
+      etiket:kalemEtiket(k,idx),
       ozet:kalemOzet(k,u)
     };
-  });
+  }).filter(Boolean);
+}
+
+/* Kumaş planı (masaüstü 29-kumas-plani, kumasPlaniKalemKumasi ile AYNI kural): kalemin kumas_id'si
+   ('' = plandaki tek kumaşa, '-' = kumaştan değil); kumaşın kalemlerinden biri dokuma aşamalı ya da
+   aşaması tanımsızsa kumaş dokunur; kumaşın İLK kalemi kumaşı taşır (dokuma girişi oraya yazılır). */
+function tzKalemKumasi(sip,idx){
+  const ua=kdCache['KD_URUN_AGACI_'+sip.id];
+  const kumaslar=ua?.siparis?.kumas_plani?.kumaslar;
+  if(!Array.isArray(kumaslar)||!kumaslar.length)return null;
+  const tek=kumaslar.length===1?kumaslar[0].id:null;
+  const kalemKumas=(ki)=>{const v=String(ua['u_'+ki]?.kumas_id||'');return v==='-'?null:(kumaslar.some(k=>k.id===v)?v:(!v&&tek?tek:null));};
+  const kid=kalemKumas(idx);
+  if(!kid)return null;
+  const uyeler=parseKalemler(sip).map((_,ki)=>ki).filter(ki=>kalemKumas(ki)===kid);
+  const dokunur=uyeler.some(ki=>{const a=ua['u_'+ki]?.asamalar;return!Array.isArray(a)||!a.length||a.includes('dokuma');});
+  if(!dokunur)return null;
+  const km=kumaslar.find(k=>k.id===kid)||{};
+  return{id:kid,oncuKi:uyeler[0],kalemSay:uyeler.length,ad:(km.ad||km.kod||'Kumaş')+' · kumaş '+kid,yalin:km.ad||km.kod||'Kumaş',kod:km.kod||''};
 }
 
 function gkSatirHtml(r){
@@ -1244,7 +1620,7 @@ async function urunAraRender(){
 
 /** Bir kartın sayaçlarını ve "son giriş" satırını tüm listeyi çizmeden tazeler
     — kalite masasında odak ve kaydırma konumu bozulmamalı. */
-function gkKartTazele(siparisId,kalemIdx,sonGiris){
+function gkKartTazele(siparisId,kalemIdx,sonGiris,sadeceAyniGid){
   const rid=`${siparisId}-${kalemIdx}`;
   const satir=_uaSonSatirlar.find(r=>String(r.siparisId)===String(siparisId)&&r.kalemIdx===kalemIdx);
   if(!satir)return;
@@ -1253,15 +1629,13 @@ function gkKartTazele(siparisId,kalemIdx,sonGiris){
   const sayEl=document.getElementById('gk-say-'+rid);
   if(sayEl)sayEl.innerHTML=gkSayacHtml(satir.ozet);
   const sonEl=document.getElementById('gk-son-'+rid);
+  /* Bekleyen top sonradan gönderilince yalnız kendi satırını günceller — arada yeni top
+     girildiyse onun satırına dokunmaz. Yeni girilen top her zaman satırı alır. */
   if(sonEl&&sonGiris){
-    const p=[];
-    if(sonGiris.metre)p.push(fmt(sonGiris.metre,1)+' m');
-    if(sonGiris.kg)p.push(fmt(sonGiris.kg,1)+' kg');
-    if(sonGiris.adet)p.push(fmt(sonGiris.adet,0)+' adet');
-    sonEl.innerHTML=`<div class="gk-son">
-      <span>✓ Son kayıt: <strong style="color:var(--text2)">${esc(p.join(' · '))}</strong> · ${esc(String(sonGiris.tarih||'').slice(11))}</span>
-      <button type="button" class="gk-son-geri" onclick="gkGeriAl(this,'${esc(String(siparisId))}',${kalemIdx},'${esc(sonGiris.gid)}')">↩ Geri al</button>
-    </div>`;
+    if(!sadeceAyniGid||sonEl.getAttribute('data-son-gid')===sonGiris.gid){
+      sonEl.setAttribute('data-son-gid',sonGiris.gid);
+      sonEl.innerHTML=sonKayitHtml(sonGiris,siparisId,kalemIdx,'gk');
+    }
   }
 }
 
@@ -1288,15 +1662,16 @@ async function gkKaydet(siparisId,kalemIdx){
   if(mEl)mEl.disabled=true;
   if(iEl)iEl.disabled=true;
   try{
-    const giris=await dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet);
+    const{bekliyor,giris}=await topKaydet(siparisId,kalemIdx,metre,kg,adet,satir);
     if(mEl)mEl.value='';
     if(iEl)iEl.value='';
     gkKartTazele(siparisId,kalemIdx,giris);
-    showToast(`✅ ${satir.etiket} · ${fmt(metre,1)} m${tip==='MT'?'':` · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'}`} kaydedildi`,2400);
-    _vgCache=null;
+    if(bekliyor)showToast('📡 İnternet yok — top tablette saklandı, bağlantı gelince gönderilecek',3200);
+    else showToast(`✅ ${satir.etiket} · ${fmt(metre,1)} m${tip==='MT'?'':` · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'}`} kaydedildi`,2400);
+    _vgCache=null;_ddCacheTs=0;
     setTimeout(()=>mEl?.focus(),50);
   }catch(e){
-    showToast('❌ Kaydedilemedi: '+(e.message||e),3600);
+    showToast(e&&e.ikizIptal?'Kayıt yapılmadı — aynı kaleme aynı top az önce girilmiş':'❌ Kaydedilemedi: '+(e.message||e),3600);
   }finally{
     if(btn){btn.disabled=false;btn.textContent=eski||'Kaydet';}
     if(mEl)mEl.disabled=false;
@@ -1311,10 +1686,11 @@ async function gkGeriAl(btn,siparisId,kalemIdx,gid){
   try{
     const satir=_uaSonSatirlar.find(r=>String(r.siparisId)===String(siparisId)&&r.kalemIdx===kalemIdx);
     await dokumaGirisSil(siparisId,kalemIdx,gid,satir?.etiket);
+    bugunCikar(gid);
     gkKartTazele(siparisId,kalemIdx,null);
     const sonEl=document.getElementById(`gk-son-${siparisId}-${kalemIdx}`);
     if(sonEl)sonEl.innerHTML='';
-    _vgCache=null;
+    _vgCache=null;_ddCacheTs=0;
     showToast('↩ Kayıt geri alındı',2000);
   }catch(e){
     showToast('❌ Geri alınamadı: '+(e.message||e),3600);
@@ -1357,8 +1733,9 @@ async function veriGirisleriYukle(){
           satirlar.push({
             siparisId:sid,sno:sip?.sno||sid,firma:sip?.firma||sip?.musteri||'—',
             kalemIdx:ki,
-            etiket:[k.ad||k.kod||('Kalem '+(ki+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · '),
-            birimTip:ikinciBirimTip(k),
+            kumas:g.kumas||null,
+            etiket:g.kumas?('Kumaş '+g.kumas+' (ham)'):kalemEtiket(k,ki),
+            birimTip:g.kumas?'MT':ikinciBirimTip(k),
             metre:parseFloat(g.metre||0)||0,kg:parseFloat(g.kg||0)||0,adet:parseInt(g.adet||0,10)||0,
             tarih:g.tarih||'',ts:Date.parse(g.tarih_iso||'')||0,
             user:g.user||g.kullanici||'',gid:g.gid,
@@ -1369,6 +1746,17 @@ async function veriGirisleriYukle(){
     });
   }
   satirlar.sort((a,b)=>b.ts-a.ts);
+  /* Kumaş girişleri kumaşın ADIYLA: yalnız bu siparişlerin ürün ağacı okunur */
+  const kumasSid=[...new Set(satirlar.slice(0,80).filter(r=>r.kumas).map(r=>String(r.siparisId)))];
+  if(kumasSid.length){
+    try{await getKdBatch(kumasSid,'KD_URUN_AGACI');}catch(e){console.warn('girisler urun agaci',e);}
+    satirlar.forEach(r=>{
+      if(!r.kumas)return;
+      const sip=siparisler.find(x=>String(x.id)===String(r.siparisId));
+      const kum=sip?tzKalemKumasi(sip,r.kalemIdx):null;
+      if(kum)r.etiket=kum.ad+' (ham)';
+    });
+  }
   _vgCache=satirlar.slice(0,80);
   return _vgCache;
 }
@@ -1488,6 +1876,7 @@ async function vgDuzenleKaydet(btn,gid){
   try{
     const degisti=await dokumaGirisGuncelle(r.siparisId,r.kalemIdx,gid,yeni,r.etiket);
     if(!degisti){showToast('Değişiklik yok',1800);vgDuzenleKapat(gid);return;}
+    bugunGuncelle(gid,yeni);
     showToast('✅ Kayıt düzeltildi · '+girisMiktarOzeti(yeni),2600);
     await veriGirisleriRender(true);
   }catch(e){
@@ -1505,6 +1894,7 @@ async function vgSil(btn,gid){
   btn.disabled=true;btn.textContent='…';
   try{
     await dokumaGirisSil(r.siparisId,r.kalemIdx,gid,r.etiket);
+    bugunCikar(gid);
     _vgCache=(_vgCache||[]).filter(x=>x.gid!==gid);
     const el=document.getElementById('vg-'+gid);
     if(el)el.remove();
@@ -1518,7 +1908,7 @@ async function vgSil(btn,gid){
 
 /* ── Sekme / yenileme / toast ────────────────────────────────────── */
 function aktifTabId(){
-  for(const id of ['giris','siparisler','girisler','tezgahlar']){
+  for(const id of ['giris','siparisler','girisler','tezgahlar','depo']){
     const el=document.getElementById('tab-'+id);
     if(el&&el.style.display!=='none')return id;
   }
@@ -1526,30 +1916,33 @@ function aktifTabId(){
 }
 function switchTab(t,idx){
   const onceki=aktifTabId();
-  ['giris','siparisler','girisler','tezgahlar'].forEach(id=>{
+  ['giris','siparisler','girisler','tezgahlar','depo'].forEach(id=>{
     const el=document.getElementById('tab-'+id);
     if(el)el.style.display=id===t?'':'none';
   });
-  const aktifIdx=typeof idx==='number'?idx:({giris:0,siparisler:1,girisler:2,tezgahlar:3})[t]??0;
+  const aktifIdx=typeof idx==='number'?idx:({giris:0,siparisler:1,girisler:2,tezgahlar:3,depo:4})[t]??0;
   document.querySelectorAll('#main-tab-bar .tab-btn').forEach((b,i)=>b.classList.toggle('active',i===aktifIdx));
   writeUiState({activeTab:t});
   if(t==='girisler'&&onceki!=='girisler')setTimeout(()=>{veriGirisleriRender();},0);
   if(t==='tezgahlar'&&onceki!=='tezgahlar')setTimeout(()=>{tezgahlarRender();},0);
+  if(t==='depo'&&onceki!=='depo')setTimeout(()=>{ddRender();},0);
 }
 
 async function manuelYenile(){
   const btn=document.getElementById('yenile-btn');
-  if(btn){btn.disabled=true;btn.style.opacity='.6';btn.textContent='⏳';}
+  if(btn){btn.disabled=true;btn.style.opacity='.6';btn.textContent='⏳ Yenileniyor';}
   try{
-    kdCache={};kdCacheTs={};_vgCache=null;
+    await bekleyenGonder();
+    kdCache={};kdCacheTs={};_vgCache=null;_ddCacheTs=0;
     if(!await loadSiparisler())throw new Error('Sipariş listesi yüklenemedi');
     const t=aktifTabId();
     if(t==='giris')await urunAraRender();
     else if(t==='girisler')await veriGirisleriRender(true);
     else if(t==='tezgahlar')await tezgahlarRender();
+    else if(t==='depo')await ddRender(true);
     showToast('✅ Güncellendi',1200);
   }catch(e){showToast('❌ Yenilenemedi: '+(e.message||e));}
-  if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='🔄';}
+  if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='🔄 Yenile';}
 }
 
 function showToast(m,d=1500){
@@ -1570,7 +1963,7 @@ function showToast(m,d=1500){
    gibi hesaplar burada YOK — o, masaüstünde KD_DOKUMA girişlerinden
    canlı hesaplanıyor (tpDokunanHesapla); burada sadece "hangi sipariş
    şu an bu tezgahta dokunuyor" gösteriliyor. */
-let tezgahlarCache=[],tezgahIslerCache=[],tzSiparisCache=new Map(),tezgahDikkatSet=new Set();
+let tezgahlarCache=[],tezgahIslerCache=[],tezgahLeventCache=[],tzSiparisCache=new Map(),tezgahDikkatSet=new Set();
 
 /** Bir tezgahta EN SON biten (bit_ts'e göre) iş — yoksa null. */
 function tezgahSonBitenIs(tezgahId){
@@ -1588,14 +1981,16 @@ function tzKalemVeriGirilmisMi(siparisId,kalemIdx){
 }
 
 async function loadTezgahlar(){
-  const[tzRes,isRes]=await Promise.all([
+  const[tzRes,isRes,levRes]=await Promise.all([
     sb.from('tezgahlar').select('id,tezgah_no,tezgah_tipi,aktif').limit(500),
-    sb.from('dokuma_levent_is').select('id,tezgah_id,siparis_id,kalem_idx,durum,sira,hedef_metre,hedef_adet,bit_ts').eq('aktif',true).limit(2000)
+    sb.from('dokuma_levent_is').select('id,tezgah_id,siparis_id,kalem_idx,durum,sira,hedef_metre,hedef_adet,bit_ts,urun_adi,renk,ebat,notlar,levent_id').eq('aktif',true).limit(2000),
+    sb.from('dokuma_levent').select('id,tezgah_id,durum').in('durum',['TEZGAHTA','HAZIRLIK']).limit(1000)
   ]);
   if(tzRes.error)throw tzRes.error;
   tezgahlarCache=(tzRes.data||[]).filter(t=>t.aktif!==false)
     .sort((a,b)=>String(a.tezgah_no||'').localeCompare(String(b.tezgah_no||''),'tr',{numeric:true}));
   tezgahIslerCache=isRes.error?[]:(isRes.data||[]);
+  tezgahLeventCache=levRes.error?[]:(levRes.data||[]);
   const sids=[...new Set(tezgahIslerCache.map(i=>i.siparis_id).filter(v=>v!=null).map(String))];
   tzSiparisCache=new Map();
   if(sids.length){
@@ -1631,15 +2026,24 @@ function tezgahDurum(tezgahId){
   return'BOS';
 }
 /** İş satırından okunabilir sipariş/ürün bilgisi — sipariş kapanmış/bulunamıyorsa da çökmez. */
+/* Kumaş planı işi (masaüstü 29-kumas-plani, 09.10.2026): kumaştan kesilen adet siparişinde kumaş TEK iş
+   olarak dokunur; iş kumaşın ilk kalemine bağlıdır, notlarında [KUMAS_PLANI:A:SM-…] taşır. Adı/rengi
+   işten gelir, girişi YALNIZ metredir (masaüstü tpIsKalemi ile aynı kural). */
+function tzIsKumasId(is){const m=/\[KUMAS_PLANI:([A-Z])/.exec(String(is?.notlar||''));return m?m[1]:null;}
+function tzIsKalemi(k,is){
+  const kid=tzIsKumasId(is);
+  if(!kid)return k||{};
+  return{...(k||{}),ad:is.urun_adi||('Kumaş '+kid),renk:is.renk||'HAM',ebat:is.ebat||'',olcu:'',birim:'MT',miktar:is.hedef_metre||0,__kumas:kid};
+}
 function tzIsEtiket(is){
   const sip=tzSiparisCache.get(String(is?.siparis_id));
   if(!sip)return{sno:'Sipariş #'+(is?.siparis_id??'—'),firma:'—',urun:'—',hedef:'—'};
-  const k=parseKalemler(sip)[is.kalem_idx]||{};
+  const k=tzIsKalemi(parseKalemler(sip)[is.kalem_idx]||{},is);
   const hedef=is.hedef_metre?fmt(is.hedef_metre,0)+' m':(is.hedef_adet?fmt(is.hedef_adet,0)+' ad':'—');
   return{
     sno:sip.sno||String(sip.id),
     firma:sip.firma||sip.musteri||'—',
-    urun:[k.ad||k.kod||('Kalem '+((is.kalem_idx??0)+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · ')||'—',
+    urun:kalemEtiket(k,is.kalem_idx)||'—',
     hedef
   };
 }
@@ -1694,13 +2098,26 @@ function tezgahHucreHtml(t){
    değişken değil, rid → satır eşlemesi (Map) kullanılıyor. */
 let _tzAktifSatirlar=new Map();
 
-function tzSatirHazirla(sip,kalemIdx,kd){
-  const k=parseKalemler(sip)[kalemIdx]||{};
+/* Tezgah penceresinden girilen top hangi tezgahtan çıktığını bilir — masaüstü Tezgah Planlama'nın
+   (tpIsKaydiEkle) yazdığı alanların aynısı yazılır; yoksa ana program tahmin eder, ürün birden çok
+   tezgahtaysa girişi "belirsiz" sayardı. Levent: tezgahtaki levent (masaüstü tpAktifLevent kuralı);
+   biten işte önce işin kendi levendi. */
+function tzGirisTezgahAlanlari(is){
+  if(!is||is.id==null)return null;
+  const t=tezgahlarCache.find(x=>String(x.id)===String(is.tezgah_id));
+  const ls=tezgahLeventCache.filter(l=>String(l.tezgah_id)===String(is.tezgah_id));
+  const aktif=ls.find(l=>String(l.durum).toUpperCase()==='TEZGAHTA')||ls.sort((a,b)=>(+b.id||0)-(+a.id||0))[0]||null;
+  const biten=String(is.durum||'').toUpperCase()==='BITTI';
+  return{tezgah_id:is.tezgah_id,tezgah_no:t?.tezgah_no||'',
+    levent_id:(biten?(is.levent_id||aktif?.id):(aktif?.id||is.levent_id))||null,is_id:is.id};
+}
+function tzSatirHazirla(sip,kalemIdx,kd,is){
+  const k=tzIsKalemi(parseKalemler(sip)[kalemIdx]||{},is);
   const u=kd?.urunler?.[kalemIdx]||{};
   return{
     siparisId:sip.id,sno:sip.sno||String(sip.id),firma:sip.firma||sip.musteri||'—',
-    kalemIdx,kalem:k,
-    etiket:[k.ad||k.kod||('Kalem '+((kalemIdx??0)+1)),k.renk,k.ebat||k.olcu].filter(Boolean).join(' · ')||'—',
+    kalemIdx,kalem:k,kumas:k.__kumas||null,tezgah:tzGirisTezgahAlanlari(is),
+    etiket:kalemEtiket(k,kalemIdx)||'—',
     ozet:kalemOzet(k,u)
   };
 }
@@ -1743,7 +2160,7 @@ async function tzGkKaydet(siparisId,kalemIdx){
   if(mEl)mEl.disabled=true;
   if(iEl)iEl.disabled=true;
   try{
-    const giris=await dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet);
+    const{bekliyor,giris}=await topKaydet(siparisId,kalemIdx,metre,kg,adet,satir);
     if(mEl)mEl.value='';
     if(iEl)iEl.value='';
     const kd=kdCache[KD_TIP+'_'+siparisId]||{};
@@ -1752,18 +2169,15 @@ async function tzGkKaydet(siparisId,kalemIdx){
     if(sayEl)sayEl.innerHTML=gkSayacHtml(satir.ozet);
     const sonEl=document.getElementById('tzgk-son-'+rid);
     if(sonEl){
-      const p=[];
-      if(giris.metre)p.push(fmt(giris.metre,1)+' m');
-      if(giris.kg)p.push(fmt(giris.kg,1)+' kg');
-      if(giris.adet)p.push(fmt(giris.adet,0)+' adet');
-      sonEl.innerHTML=`<div class="gk-son"><span>✓ Son kayıt: <strong style="color:var(--text2)">${esc(p.join(' · '))}</strong> · ${esc(String(giris.tarih||'').slice(11))}</span>
-        <button type="button" class="gk-son-geri" onclick="tzGkGeriAl(this,'${esc(String(siparisId))}',${kalemIdx},'${esc(giris.gid)}')">↩ Geri al</button></div>`;
+      sonEl.setAttribute('data-son-gid',giris.gid);
+      sonEl.innerHTML=sonKayitHtml(giris,siparisId,kalemIdx,'tzgk');
     }
-    showToast(`✅ ${satir.etiket} · ${fmt(metre,1)} m${tip==='MT'?'':` · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'}`} kaydedildi`,2400);
-    _vgCache=null;
+    if(bekliyor)showToast('📡 İnternet yok — top tablette saklandı, bağlantı gelince gönderilecek',3200);
+    else showToast(`✅ ${satir.etiket} · ${fmt(metre,1)} m${tip==='MT'?'':` · ${fmt(ikinci,tip==='KG'?1:0)} ${tip==='KG'?'kg':'adet'}`} kaydedildi`,2400);
+    _vgCache=null;_ddCacheTs=0;
     setTimeout(()=>mEl?.focus(),50);
   }catch(e){
-    showToast('❌ Kaydedilemedi: '+(e.message||e),3600);
+    showToast(e&&e.ikizIptal?'Kayıt yapılmadı — aynı kaleme aynı top az önce girilmiş':'❌ Kaydedilemedi: '+(e.message||e),3600);
   }finally{
     if(btn){btn.disabled=false;btn.textContent=eski||'Kaydet';}
     if(mEl)mEl.disabled=false;
@@ -1779,6 +2193,7 @@ async function tzGkGeriAl(btn,siparisId,kalemIdx,gid){
   if(btn){btn.disabled=true;btn.textContent='…';}
   try{
     await dokumaGirisSil(siparisId,kalemIdx,gid,satir?.etiket);
+    bugunCikar(gid);
     if(satir){
       const kd=kdCache[KD_TIP+'_'+siparisId]||{};
       satir.ozet=kalemOzet(satir.kalem,kd?.urunler?.[kalemIdx]||{});
@@ -1787,7 +2202,7 @@ async function tzGkGeriAl(btn,siparisId,kalemIdx,gid){
     }
     const sonEl=document.getElementById('tzgk-son-'+rid);
     if(sonEl)sonEl.innerHTML='';
-    _vgCache=null;
+    _vgCache=null;_ddCacheTs=0;
     showToast('↩ Kayıt geri alındı',2000);
   }catch(e){
     showToast('❌ Geri alınamadı: '+(e.message||e),3600);
@@ -1827,7 +2242,7 @@ async function openTezgah(id){
       if(acilisNo!==_tzAcilisNo)return;
       sonBitenEksik=!tzKalemVeriGirilmisMi(sip.id,sonBiten.kalem_idx);
       if(sonBitenEksik){
-        const satir=tzSatirHazirla(sip,sonBiten.kalem_idx,kd);
+        const satir=tzSatirHazirla(sip,sonBiten.kalem_idx,kd,sonBiten);
         _tzAktifSatirlar.set(`${satir.siparisId}-${satir.kalemIdx}`,satir);
         html+=`<div class="sec-title" style="color:var(--red)">⚠ Biten iş — kalite verisi eksik</div>
           <div class="gk-ust" style="margin-bottom:6px"><div class="gk-sno">${esc(satir.sno)}</div><div class="gk-firma">${esc(satir.firma)}</div></div>
@@ -1844,7 +2259,7 @@ async function openTezgah(id){
       let kd;
       try{kd=await getKd(sip.id,KD_TIP);}catch(e){hataGoster(e);return;}
       if(acilisNo!==_tzAcilisNo)return;
-      const satir=tzSatirHazirla(sip,dokunan.kalem_idx,kd);
+      const satir=tzSatirHazirla(sip,dokunan.kalem_idx,kd,dokunan);
       _tzAktifSatirlar.set(`${satir.siparisId}-${satir.kalemIdx}`,satir);
       html+=`<div class="sec-title">Şu an dokunan sipariş — top girişi</div>
         <div class="gk-ust" style="margin-bottom:6px"><div class="gk-sno">${esc(satir.sno)}</div><div class="gk-firma">${esc(satir.firma)}</div></div>
@@ -1870,7 +2285,357 @@ async function openTezgah(id){
 }
 function closeTezgahModal(){_tzAcilisNo++;document.getElementById('tezgah-modal').style.display='none';_tzAktifSatirlar=new Map();}
 
+/* ── Kalite depo (12.10.2026) ────────────────────────────────────────
+   Kaliteden geçen, henüz sevk edilmemiş mal. Ana programın Dokuma Depo'suyla AYNI kural (04-live-sync
+   dtDokumaDepoKdTopluYukle + dokumaDepoSevkDefteriOku), kalem başına:
+     girişler = 31.07 sonrası dokuma girişleri (Excel genel durum kalemi: hepsi; depo_kalan_sifir: hiç)
+     kalan    = girişler − sevk defteri (kumas_stok, notlarda [DD_V2], siparis_id + kalem_idx)
+   Son girişi 31.07'den eski kalem sayılmaz; kapalı siparişler dahil (ana program da sayar).
+   Sevk: yalnız Konfeksiyon'a, yalnız Dokuma Depo yetkisiyle. Yazmadan önce bu kalemin kalanı TAZE
+   okunur (başka tablet / ana program az önce sevk etmiş olabilir). Yazılan: defter satırı + KUMAS_GELIS
+   (ana programın 02 dokumaDepoSevkDefterYaz / dokumaDepoSevkEtKd yazdığının aynısı); KUMAS_GELIS
+   yazılamazsa defter satırı geri alınır. Dokuma girişlerine (KD_DOKUMA) dokunulmaz. */
+const DD_BASLANGIC=new Date(2026,6,31);   // ana program DOKUMA_DEPO_LISTE_BASLANGIC_ISO = '2026-07-31'
+const DD_ETIKET='[DD_V2]';                // ana program DOKUMA_DEPO_SEVK_ETIKET
+const DD_LIMIT_ADIM=60;
+let _ddCache=null,_ddCacheTs=0,_ddArama='',_ddYukleniyor=null,_ddLimit=DD_LIMIT_ADIM,_ddAramaZaman=null;
+
+function ddSevkYetkili(){
+  if(!currentUser)return false;
+  if(String(currentUser.role||'').toLowerCase()==='admin')return true;
+  return(Array.isArray(currentUser.allowed)?currentUser.allowed:normalizeAllowed(currentUser.allowed_modes)).includes('DOKUMA_DEPO');
+}
+/** Ana programdaki dtDokumaDepoTarihParse ile aynı: "12.10.2026 09:30:00" ya da ISO. */
+function ddTarihParse(v){
+  if(!v)return null;
+  const s=String(v).trim();
+  const tr=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(tr){const d=new Date(+tr[3],+tr[2]-1,+tr[1],+(tr[4]||0),+(tr[5]||0),+(tr[6]||0));if(!isNaN(d.getTime()))return d;}
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s);if(!isNaN(d.getTime()))return d;}
+  return null;
+}
+/** Kalemin depoya giren dokuması (ana programdaki toplama kuralı). */
+function ddKalemGiris(u){
+  if(!u||u.depo_kalan_sifir)return null;
+  const gl=Array.isArray(u.girisler)?u.girisler:[];
+  const genel=gl.some(g=>g&&g.kaynak==='GENEL_DURUM_EXCEL');
+  let mt=0,kg=0,ad=0,son=null;
+  gl.forEach(g=>{
+    if(!g)return;
+    const d=ddTarihParse(g.tarih_iso||g.tarih);
+    if(!genel&&!(d&&d.getTime()>=DD_BASLANGIC.getTime()))return;
+    mt+=parseFloat(g.metre||0)||0;kg+=parseFloat(g.kg||0)||0;ad+=parseInt(g.adet||0,10)||0;
+    if(d&&(!son||d>son))son=d;
+  });
+  return{mt,kg,ad,son};
+}
+/** Giriş − sevk; depoda bir şey yoksa null. */
+function ddKalan(giris,sv){
+  if(!giris||!giris.son||giris.son.getTime()<DD_BASLANGIC.getTime())return null;
+  let{mt,kg,ad}=giris;
+  if(sv){mt=Math.max(0,mt-sv.mt);kg=Math.max(0,kg-sv.kg);ad=Math.max(0,ad-sv.ad);if(mt<0.001)mt=0;if(kg<0.001)kg=0;}
+  if(mt<=0&&kg<=0&&ad<=0)return null;
+  return{mt,kg,ad,son:giris.son};
+}
+/** Sevk defteri: siparis|kalem → sevk edilen {mt,kg,ad}. filtre verilirse yalnız o kalem. */
+async function ddDefterOku(filtre){
+  const{data,error}=await tumSatirlariCek(()=>{
+    let q=sb.from('kumas_stok').select('id,siparis_id,kalem_idx,miktar_mt,miktar_kg,cuval_sayisi').like('notlar','%'+DD_ETIKET+'%');
+    if(filtre)q=q.eq('siparis_id',coerceSiparisIdForDb(filtre.sid)).eq('kalem_idx',filtre.ki);
+    return q.order('id',{ascending:true});
+  });
+  if(error)throw error;
+  const m=new Map();
+  (data||[]).forEach(r=>{
+    const ki=parseInt(r.kalem_idx,10);
+    if(r.siparis_id==null||!Number.isFinite(ki))return;
+    const k=String(r.siparis_id)+'|'+ki;
+    const t=m.get(k)||{mt:0,kg:0,ad:0};
+    t.mt+=Math.abs(parseFloat(r.miktar_mt)||0);t.kg+=Math.abs(parseFloat(r.miktar_kg)||0);t.ad+=Math.abs(parseInt(r.cuval_sayisi,10)||0);
+    m.set(k,t);
+  });
+  return m;
+}
+async function ddYukle(){
+  const[kdRes,defter]=await Promise.all([
+    tumSatirlariCek(()=>sb.from('siparis_akis').select('id,siparis_id,kalem_ad,notlar,created_at')
+      .eq('islem',KD_TIP).order('created_at',{ascending:false}).order('id',{ascending:false})),
+    ddDefterOku()
+  ]);
+  if(kdRes.error)throw kdRes.error;
+  const grup=new Map();
+  (kdRes.data||[]).forEach(r=>{const k=String(r.siparis_id||'');if(!k)return;if(!grup.has(k))grup.set(k,[]);grup.get(k).push(r);});
+  const ham=[];
+  grup.forEach((rows,sid)=>{
+    const kd=kdSatirlardanSec(rows);
+    Object.entries(kd?.urunler||{}).forEach(([key,u])=>{
+      const ki=parseInt(key,10);
+      if(!Number.isFinite(ki))return;
+      const kal=ddKalan(ddKalemGiris(u),defter.get(sid+'|'+ki));
+      if(kal)ham.push({sid,ki,...kal});
+    });
+  });
+  /* Kumaş planı adları için ürün ağaçları — 60'arlık parçalar (sunucu tek istekte 1000 satır verir) */
+  const sids=[...new Set(ham.map(h=>h.sid))];
+  const parca=[];for(let i=0;i<sids.length;i+=60)parca.push(sids.slice(i,i+60));
+  await Promise.all(parca.map(p=>getKdBatch(p,'KD_URUN_AGACI')));
+  const sipMap=new Map((_tumSiparisler.length?_tumSiparisler:siparisler).map(x=>[String(x.id),x]));
+  _ddCache=ham.map(h=>{
+    const sip=sipMap.get(h.sid)||{id:h.sid,sno:'',firma:'',cins:'[]'};
+    const kalem=parseKalemler(sip)[h.ki]||{};
+    const kumas=tzKalemKumasi(sip,h.ki);
+    return{...h,sip,kalem,kumas,sno:sip.sno||('#'+h.sid),firma:sip.firma||sip.musteri||'—',
+      etiket:kumas?kumas.ad+' · HAM':kalemEtiket(kalem,h.ki),
+      tip:kumas?'MT':ikinciBirimTip(kalem),kapali:siparisKapaliMi(sip.durum)};
+  });
+  _ddCacheTs=Date.now();
+}
+function ddMiktarMetin(r){
+  const p=[fmt(r.mt,1)+' m'];
+  if(r.tip==='ADET'&&r.ad)p.push(fmt(r.ad,0)+' ad');
+  if(r.tip==='KG'&&r.kg)p.push(fmt(r.kg,1)+' kg');
+  return p.join(' · ');
+}
+function ddSatirBul(sid,ki){return(_ddCache||[]).find(r=>String(r.sid)===String(sid)&&r.ki===ki)||null;}
+async function ddRender(force){
+  const host=document.getElementById('dd-liste-area');
+  if(!host)return;
+  if(force||!_ddCache||Date.now()-_ddCacheTs>60000){
+    host.innerHTML='<div class="loading"><div class="spinner"></div><div>Depo okunuyor…</div></div>';
+    try{await(_ddYukleniyor||(_ddYukleniyor=ddYukle().finally(()=>{_ddYukleniyor=null;})));}
+    catch(e){
+      /* Okunamazsa liste GÖSTERİLMEZ — eksik sevk defteriyle fazla görünüp ikinci kez sevk edilmesin */
+      _ddCache=null;
+      host.innerHTML=`<div class="empty"><div class="icon">⚠️</div>Depo okunamadı: ${esc(e.message||e)}</div>`;
+      const oz=document.getElementById('dd-ozet');if(oz)oz.innerHTML='';
+      return;
+    }
+  }
+  ddListeCiz();
+}
+function ddAramaDegisti(v){
+  clearTimeout(_ddAramaZaman);
+  _ddAramaZaman=setTimeout(()=>{_ddArama=String(v||'');_ddLimit=DD_LIMIT_ADIM;ddListeCiz();},250);
+}
+function ddListeCiz(){
+  const host=document.getElementById('dd-liste-area');
+  if(!host||!_ddCache)return;
+  const parcalar=normText(_ddArama).split(' ').filter(Boolean);
+  const l=parcalar.length?_ddCache.filter(r=>{
+    const h=normText([r.sno,r.firma,r.etiket,r.kalem.kod,r.kalem.desen,r.kalem.renk].join(' '));
+    return parcalar.every(p=>h.includes(p));
+  }):_ddCache;
+  const t=l.reduce((a,r)=>({mt:a.mt+r.mt,ad:a.ad+(r.tip==='ADET'?r.ad:0),kg:a.kg+(r.tip==='KG'?r.kg:0)}),{mt:0,ad:0,kg:0});
+  const oz=document.getElementById('dd-ozet');
+  if(oz)oz.innerHTML=`📦 Depoda: <strong>${l.length}</strong> kalem · <strong>${fmt(t.mt,0)}</strong> m`
+    +(t.ad?` · <strong>${fmt(t.ad,0)}</strong> adet`:'')+(t.kg?` · <strong>${fmt(t.kg,0)}</strong> kg`:'')
+    +(ddSevkYetkili()?'':'<br><span style="color:var(--amber)">Sevk için Dokuma Depo yetkisi gerekir (Kullanıcı Yönetimi).</span>');
+  if(!l.length){host.innerHTML=`<div class="empty"><div class="icon">📭</div>${parcalar.length?'Aramaya uyan mal yok.':'Depoda sevk bekleyen mal yok.'}</div>`;return;}
+  const g=new Map();
+  l.forEach(r=>{if(!g.has(r.sid))g.set(r.sid,[]);g.get(r.sid).push(r);});
+  const gruplar=[...g.values()].map(rs=>({rs:rs.sort((a,b)=>a.ki-b.ki),son:Math.max(...rs.map(r=>r.son.getTime()))}))
+    .sort((a,b)=>b.son-a.son);
+  const yetkili=ddSevkYetkili();
+  const html=gruplar.slice(0,_ddLimit).map(gr=>{
+    const r0=gr.rs[0];
+    return `<div class="card"><div class="dd-sip"><span class="gk-sno">${esc(r0.sno)}</span>
+      <span class="gk-firma">${esc(r0.firma)}${r0.kapali?' · kapalı sipariş':''}</span></div>${gr.rs.map(r=>ddKalemHtml(r,yetkili)).join('')}</div>`;
+  }).join('');
+  const kalan=gruplar.length-_ddLimit;
+  host.innerHTML=html+(kalan>0?`<button type="button" class="dd-daha" onclick="_ddLimit+=DD_LIMIT_ADIM;ddListeCiz()">${kalan} sipariş daha göster</button>`:'');
+}
+function ddKalemHtml(r,yetkili){
+  const rid=r.sid+'-'+r.ki;
+  return `<div class="dd-kalem" id="dd-${rid}">
+    <div class="dd-satir"><div class="dd-ad">${esc(r.etiket)}</div><div class="dd-mik" id="dd-mik-${rid}">${ddMiktarMetin(r)}</div></div>
+    <div class="dd-alt"><span>son giriş ${r.son.toLocaleDateString('tr-TR')}</span>
+      ${yetkili?`<button type="button" class="dd-sevk-btn" onclick="ddSevkAc('${esc(String(r.sid))}',${r.ki})">🚚 Sevk et</button>`:''}</div>
+    <div id="dd-form-${rid}"></div>
+  </div>`;
+}
+function ddSevkAc(sid,ki){
+  const r=ddSatirBul(sid,ki);if(!r)return;
+  const rid=sid+'-'+ki;
+  const el=document.getElementById('dd-form-'+rid);if(!el)return;
+  if(el.innerHTML){el.innerHTML='';return;}
+  document.querySelectorAll('[id^="dd-form-"]').forEach(x=>{x.innerHTML='';});
+  const ph=r.tip==='KG'?'kg':'adet';
+  el.innerHTML=`<div class="dd-form">
+    <div class="dd-form-bas">→ <strong>Konfeksiyon</strong>'a sevk · depoda ${ddMiktarMetin(r)}</div>
+    <div class="gk-form">
+      <input id="dd-m-${rid}" class="gk-inp" type="text" inputmode="decimal" placeholder="metre (m)" autocomplete="off" autocapitalize="off" spellcheck="false">
+      ${r.tip==='MT'?'':`<input id="dd-i-${rid}" class="gk-inp" type="text" inputmode="decimal" placeholder="${ph}" autocomplete="off" autocapitalize="off" spellcheck="false">`}
+      <button type="button" class="gk-btn" id="dd-btn-${rid}" onclick="ddSevkKaydet('${esc(String(sid))}',${ki})">Sevk et</button>
+    </div>
+    <div class="dd-form-alt">
+      <button type="button" class="bs-btn" onclick="ddTumunuYaz('${esc(String(sid))}',${ki})">Hepsini yaz</button>
+      <button type="button" class="bs-btn" onclick="ddSevkAc('${esc(String(sid))}',${ki})">Vazgeç</button>
+    </div>
+  </div>`;
+  setTimeout(()=>document.getElementById('dd-m-'+rid)?.focus(),60);
+}
+function ddTumunuYaz(sid,ki){
+  const r=ddSatirBul(sid,ki);if(!r)return;
+  const rid=sid+'-'+ki;
+  const m=document.getElementById('dd-m-'+rid);if(m)m.value=sayiYaz(Math.round(r.mt*100)/100);
+  const i=document.getElementById('dd-i-'+rid);if(i)i.value=sayiYaz(r.tip==='KG'?Math.round(r.kg*100)/100:r.ad);
+}
+/** Ana programdaki dokumaSevkAnaMiktar ile aynı: KUMAS_GELIS.miktar kalemin biriminde. */
+function ddSevkAnaMiktar(tip,mt,kg,ad){
+  if(tip==='KG')return kg>0?kg:(mt>0?mt:ad);
+  if(tip==='MT')return mt;
+  return ad>0?ad:(mt>0?mt:kg);
+}
+async function ddSevkKaydet(sid,ki){
+  if(!ddSevkYetkili()){showToast('Sevk için Dokuma Depo yetkisi gerekir',2600);return;}
+  if(navigator.onLine===false){showToast('📡 İnternet yok — sevk yapılamaz',2600);return;}
+  const r=ddSatirBul(sid,ki);if(!r)return;
+  const rid=sid+'-'+ki;
+  const mEl=document.getElementById('dd-m-'+rid),iEl=document.getElementById('dd-i-'+rid),btn=document.getElementById('dd-btn-'+rid);
+  const mt=sayiOku(mEl?.value),ikinci=sayiOku(iEl?.value);
+  if(mt<=0){showToast('Metre girin');mEl?.focus();return;}
+  if(r.tip!=='MT'&&ikinci<=0){showToast(r.tip==='KG'?'KG girin':'Adet girin');iEl?.focus();return;}
+  const kg=r.tip==='KG'?ikinci:0,ad=r.tip==='ADET'?Math.round(ikinci):0;
+  const miktar=[fmt(mt,1)+' m',r.tip==='KG'?fmt(kg,1)+' kg':'',r.tip==='ADET'?fmt(ad,0)+' adet':''].filter(Boolean).join(' · ');
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  try{
+    /* Taze kalan: başka tablet / ana program az önce sevk etmiş olabilir */
+    const[taze,defter]=await Promise.all([kdDokumaOkuTaze(sid),ddDefterOku({sid,ki})]);
+    const kal=ddKalan(ddKalemGiris((taze.kd||{}).urunler?.[ki]),defter.get(String(sid)+'|'+ki));
+    if(!kal){showToast('Bu kalemden depoda mal kalmamış — liste yenileniyor',3200);await ddRender(true);return;}
+    const fazla=mt>kal.mt+0.001||(r.tip==='ADET'&&ad>kal.ad)||(r.tip==='KG'&&kg>kal.kg+0.001);
+    if(fazla){
+      Object.assign(r,{mt:kal.mt,kg:kal.kg,ad:kal.ad});
+      const mk=document.getElementById('dd-mik-'+rid);if(mk)mk.textContent=ddMiktarMetin(r);
+      showToast('Depoda '+ddMiktarMetin(r)+' var — fazlası sevk edilemez',3600);
+      return;
+    }
+    if(!confirm(`${r.sno} · ${r.etiket}\n${miktar}\n\nKONFEKSİYON'a sevk edilsin mi?\nDepodan düşer, Konfeksiyon Panel'de gelen kumaş olarak görünür. Kayıt adınızla tutulur.`))return;
+
+    const now=new Date();
+    const ts=now.toLocaleString('tr-TR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const user=kullaniciAdi()||'—';
+    const sip=r.sip,k0=r.kalem,sno=String(sip.sno||'').trim();
+    /* Ana programın depo satırıyla aynı alanlar (04 dtDokumaDepoStokKodu / dtDokumaDepoStokBaslik) */
+    const stokKodu=(r.kumas&&r.kumas.kod)||String(k0.kod||k0.stok_kodu||'').trim()||String(k0.ad||k0.kod||'').trim().slice(0,48);
+    const renk=r.kumas?'HAM':String(k0.renk||'').trim();
+    const urun=r.kumas?r.kumas.yalin:(k0.ad||k0.kod||'Kumaş');
+    const ana=[String(sip.firma||'').trim(),urun,renk].filter(Boolean).join(' — ');
+    const kumasCinsi=sno?`${ana} (${sno})`:ana;
+    const{data:dd,error:ddErr}=await sb.from('kumas_stok').insert([{
+      stok_kodu:stokKodu,kumas_cinsi:kumasCinsi,lot_no:sno,siparis_sno:sno,kumas_rengi:renk,firma:sip.firma||'',
+      siparis_id:coerceSiparisIdForDb(sid),kalem_idx:ki,
+      miktar_mt:-mt,miktar_kg:kg>0?-kg:0,cuval_sayisi:ad>0?ad:0,
+      islem_turu:'ÇIKIŞ',kaynak_birim:'DOKUMA_DEPO_SEVK',updated_by:user,
+      notlar:`[DOKUMA_DEPO_SEVK]${DD_ETIKET}[SEVK_YER:KONFEKSIYON]${sno?`[LOT_NO:${sno}]`:''} DP:${sid}|${ki} · ${ts} · ${user} [SEVK_HEDEF_SIPARIS:${sid}] [KAYNAK:DOKUMA_PANEL]`,
+      islem_gecmisi:`✨ ${ts} — Dokuma Depo → Konfeksiyon (Dokuma Panel) · ${sno} kalem ${ki+1} · ${mt.toFixed(2)} mt / ${kg.toFixed(2)} kg / ${ad} adet · ${user}`
+    }]).select('id');
+    if(ddErr)throw new Error('Sevk yazılamadı: '+ddErr.message);
+    const defterId=dd?.[0]?.id;
+    /* Konfeksiyon'a giden kayıt — ana programın KUMAS_GELIS'iyle aynı alanlar (Konfeksiyon Panel bunu okur) */
+    const tip0=ikinciBirimTip(k0);
+    const N=v=>String(v||'').trim().toLocaleUpperCase('tr-TR');
+    const{error:akErr}=await sb.from('siparis_akis').insert([{
+      siparis_id:coerceSiparisIdForDb(sid),islem:'KUMAS_GELIS',kalem_ad:stokKodu||sno||'Kumaş',
+      miktar:ddSevkAnaMiktar(tip0,mt,kg,ad),
+      notlar:JSON.stringify({
+        ts:now.toISOString(),user,kaynak_id:defterId,stok_kodu:stokKodu,lot_no:sno,kumas_cinsi:kumasCinsi,
+        kg:tip0==='KG'?kg:0,mt,adet:tip0==='ADET'?ad:0,siparis_birim:siparisKalemBirim(k0),ikinci_birim:tip0,
+        renk,firma:sip.firma||'',kalem_idx:ki,kalem_renk:k0.renk||renk||'',kalem_ebat:k0.ebat||k0.olcu||'',
+        kalem_key:[N(k0.ad||k0.kod),N(k0.renk),N(k0.ebat||k0.olcu)].join('|'),
+        durum:'KESIM_BEKLIYOR',kesilen_kg:0,kesilen_mt:0,kesilen_adet:0,hedef:'KONFEKSIYON',konf_panel:true,
+        pipeline:'DOKUMA_DEPO_SEVK',kaynak:'DOKUMA_PANEL',note:'Dokuma Depo → Konfeksiyon sevk · '+miktar
+      })
+    }]);
+    if(akErr){
+      const{error:geriErr}=await sb.from('kumas_stok').delete().eq('id',defterId);
+      throw new Error('Konfeksiyon kaydı yazılamadı: '+akErr.message+(geriErr?' — DİKKAT: depodan düşüldü, geri alınamadı ('+geriErr.message+')':' — sevk geri alındı'));
+    }
+    /* Listeyi yerinde güncelle (taze kalandan) */
+    Object.assign(r,{mt:Math.max(0,kal.mt-mt),kg:Math.max(0,kal.kg-kg),ad:Math.max(0,kal.ad-ad)});
+    if(r.mt<0.001&&r.kg<0.001&&r.ad<=0)_ddCache=_ddCache.filter(x=>x!==r);
+    ddListeCiz();
+    showToast(`✅ ${r.sno} · ${miktar} Konfeksiyon'a sevk edildi`,2800);
+  }catch(e){
+    showToast('❌ '+(e.message||e),4200);
+  }finally{
+    if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent='Sevk et';}
+  }
+}
+
+/* ── Karşılama sayfası + pil (kiosk tablet, 12.10.2026) ──────────────
+   Tablet açılınca / ekran kapanıp açılınca önce karşılama gelir; "Başla" ile panel kaldığı yerden
+   açılır (yarım kalan giriş kutuları silinmez). Kiosk uygulaması (mobil/dokuma-kiosk) ekran
+   kapanınca window.kioskUyandi'yı çağırır; pil yüzdesini SimteksKiosk.pil() ve değişince
+   window.kioskPil ile verir (kiosk'ta durum çubuğu kapalı, pil başka yerde görünmüyor).
+   Kiosk dışında: dokunmatik cihazda açılışta ve 20 sn'den uzun arka planda kaldıktan sonra;
+   masaüstü tarayıcıda karşılama da pil de yok. */
+const KARSILAMA_VAR=!!window.SimteksKiosk||!!(window.matchMedia&&matchMedia('(pointer:coarse)').matches);
+let _pil=null,_ksSaat=null,_gizlenme=0;
+function pilHtml(){
+  if(!_pil||!(_pil.yuzde>=0))return'';
+  const y=Math.round(_pil.yuzde);
+  const renk=_pil.sarj?'var(--green)':(y<20?'var(--red)':(y<40?'var(--amber)':'var(--text2)'));
+  return `<span style="color:${renk}">${_pil.sarj?'⚡':'🔋'} %${y}</span>`;
+}
+function pilCiz(){
+  const h=pilHtml();
+  const r=document.getElementById('pil-rozet');if(r){r.innerHTML=h;r.style.display=h?'':'none';}
+  const k=document.getElementById('ks-pil');if(k)k.innerHTML=h?h+(_pil.sarj?' <span class="ks-ince">şarj oluyor</span>':''):'';
+}
+window.kioskPil=function(yuzde,sarj){_pil={yuzde:+yuzde,sarj:!!sarj};pilCiz();};
+function pilBaslat(){
+  try{
+    if(window.SimteksKiosk&&typeof SimteksKiosk.pil==='function'){const p=JSON.parse(SimteksKiosk.pil()||'{}');if(p.yuzde>=0)kioskPil(p.yuzde,p.sarj);return;}
+    if(KARSILAMA_VAR&&navigator.getBattery)navigator.getBattery().then(b=>{const g=()=>kioskPil(Math.round(b.level*100),b.charging);g();b.addEventListener('levelchange',g);b.addEventListener('chargingchange',g);}).catch(()=>{});
+  }catch(e){}
+}
+function karsilamaAcik(){return document.getElementById('karsilama')?.style.display==='flex';}
+function karsilamaCiz(){
+  const now=new Date();
+  document.getElementById('ks-saat').textContent=now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('ks-tarih').textContent=now.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('ks-ag').innerHTML=navigator.onLine!==false?'<span style="color:var(--green)">● İnternet bağlı</span>':'<span style="color:var(--red)">● İnternet yok</span>';
+  pilCiz();
+  const b=document.getElementById('ks-bilgi'),btn=document.getElementById('ks-btn');
+  if(currentUser){
+    const l=bugunKayitlari(),bek=bekleyenler().length,m=l.reduce((a,k)=>a+(k.metre||0),0);
+    b.innerHTML=`<div class="ks-merhaba">Merhaba, <strong>${esc(kullaniciAdi())}</strong></div>
+      <div>${l.length?`Bugün bu tabletten <strong>${l.length}</strong> top · <strong>${fmt(m,1)}</strong> m girildi`:'Bugün bu tabletten henüz top girilmedi'}</div>
+      ${bek?`<div style="color:var(--amber)">${bek} top gönderilmeyi bekliyor — internet gelince gider</div>`:''}`;
+    btn.textContent='Top girişine başla';
+  }else{
+    b.innerHTML='<div>Başlamak için kullanıcı adınızla giriş yapın</div>';
+    btn.textContent='Giriş yap';
+  }
+}
+function karsilamaGoster(){
+  if(!KARSILAMA_VAR)return;
+  const el=document.getElementById('karsilama');if(!el)return;
+  try{document.activeElement?.blur?.();}catch(e){}
+  el.style.display='flex';
+  karsilamaCiz();
+  clearInterval(_ksSaat);_ksSaat=setInterval(karsilamaCiz,15000);
+}
+function karsilamaKapat(){
+  const el=document.getElementById('karsilama');if(!el)return;
+  el.style.display='none';clearInterval(_ksSaat);_ksSaat=null;
+  if(!currentUser){setTimeout(()=>document.getElementById('l-user')?.focus(),80);return;}
+  const a=document.getElementById('ua-arama');
+  if(aktifTabId()==='giris'&&a&&!a.value)setTimeout(()=>a.focus(),80);
+}
+window.kioskUyandi=karsilamaGoster;
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){_gizlenme=Date.now();return;}
+  if(!window.SimteksKiosk&&_gizlenme&&Date.now()-_gizlenme>=20000)karsilamaGoster();
+  else if(karsilamaAcik())karsilamaCiz();
+});
+window.addEventListener('online',()=>{if(karsilamaAcik())karsilamaCiz();});
+window.addEventListener('offline',()=>{if(karsilamaAcik())karsilamaCiz();});
+
 window.addEventListener('DOMContentLoaded',()=>{
+  pilBaslat();
+  karsilamaGoster();
   /* Panelde eski bir service worker kalmışsa güncelleme hiç görünmüyor;
      konfeksiyon panelindeki ile aynı karar: kayıtlı SW'leri kaldır. */
   if('serviceWorker' in navigator){

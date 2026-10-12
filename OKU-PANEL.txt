@@ -35,6 +35,34 @@ Aynı şekilde masaüstünden girilen veri de bu panelde görünür.
 Panel kayıtları girisler[] içinde  kaynak:"DOKUMA_PANEL"  etiketi taşır;
 "Girişler" sekmesi bu etikete bakarak sadece panel girişlerini listeler.
 
+Tezgahlar sekmesinden (tezgah penceresinden) girilen top, Tezgah Planlama'nın
+yazdığı alanların aynısını da taşır: tezgah_id, tezgah_no, levent_id, is_id.
+Böylece ana program topun hangi tezgahtan çıktığını tahmin etmez.
+
+KALİTE DEPO (📦 Depo sekmesi, 12.10.2026)
+-----------------------------------------
+Kaliteden geçen, henüz sevk edilmemiş mal. Ana programdaki Dokuma Depo ile
+AYNI hesap (kalem kalem birebir aynı sayı):
+    depoda = 31.07 sonrası dokuma girişleri − sevk defteri
+Sevk defteri: kumas_stok ÇIKIŞ satırları, notlarda [DD_V2], siparis_id +
+kalem_idx dolu (siparişe bağlı → genel kumaş/mamül stoğuna karışmaz;
+kaynak DOKUMA_DEPO_SEVK → müşteri yüklemesi sayılmaz).
+Sevk dokuma girişlerini DEĞİŞTİRMEZ (eskiden ana program küçültüyordu;
+04.09'a kadarki 18 eski sevk böyle düşülmüş, ikinci kez düşülmez).
+
+Tabletten sevk: yalnız KONFEKSİYON'a, yalnız Dokuma Depo yetkisi olan
+kullanıcı (ya da yönetici). Yazmadan önce kalan taze okunur, fazlası
+yazılmaz. Yazılan: defter satırı + siparis_akis KUMAS_GELIS (ana programın
+yazdığının aynısı; Konfeksiyon Panel gelen kumaş olarak görür). KUMAS_GELIS
+yazılamazsa defter satırı geri alınır. İnternet yoksa sevk yapılmaz.
+
+SİPARİŞ LİSTESİ TAZELEME
+------------------------
+Tablet bütün gün açık kalır. 3 dakikada bir (ve tablet uyanınca) yalnız
+"sipariş sayısı + en son değişiklik saati" sorulur (<1 KB); değişiklik varsa
+ve kimse yazmıyorsa (30 sn dokunulmamış, dolu kutu yok) liste yenilenir.
+Yeni açılan sipariş Yenile'ye basmadan aramada çıkar.
+
 KİM NE ZAMAN NE YAPTI (denetim izi)
 -----------------------------------
 Her girişte kaydı GİREN kullanıcı ve saati kaydın içinde durur
