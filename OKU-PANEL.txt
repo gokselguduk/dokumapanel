@@ -56,6 +56,16 @@ yazılmaz. Yazılan: defter satırı + siparis_akis KUMAS_GELIS (ana programın
 yazdığının aynısı; Konfeksiyon Panel gelen kumaş olarak görür). KUMAS_GELIS
 yazılamazsa defter satırı geri alınır. İnternet yoksa sevk yapılmaz.
 
+YENİ SÜRÜM KİLİTLİ TABLETE NASIL GELİR
+-------------------------------------
+Kilitli tablet sayfayı kendiliğinden yeniden açmaz. GitHub paketi
+(node scripts/paket-dokuma-github.js) içerikten bir sürüm üretir, html'e
+gömer ve surum.json'a yazar — İKİSİ BİRLİKTE yüklenmeli. Tablet ekran
+açılınca ve 10 dk'da bir surum.json'a bakar; farklıysa ve kimse yazmıyorsa
+sayfayı yeniler (bekleyen toplar ve oturum kaybolmaz).
+Bu özellik gelmeden önceki sürümde tek yol: Ses kısma + Güç tuşu 10 sn
+(Samsung zorla yeniden başlatma; kilitliyken de çalışır).
+
 SİPARİŞ LİSTESİ TAZELEME
 ------------------------
 Tablet bütün gün açık kalır. 3 dakikada bir (ve tablet uyanınca) yalnız
