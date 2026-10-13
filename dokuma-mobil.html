@@ -103,6 +103,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gk{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:11px 13px;margin-bottom:8px}
 .gk-ust{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
 .gk-sno{font-size:12px;font-weight:800;color:var(--text)}
+.dd-musteri{font-weight:800;color:var(--text)}
 .gk-firma{font-size:10px;color:var(--text3);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
 .gk-ad{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;line-height:1.35}
 .gk-foto-btn{flex-shrink:0;background:var(--surface2);border:1px solid var(--border2);border-radius:999px;color:var(--text2);padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -3093,8 +3094,9 @@ function ddListeCiz(){
   const yetkili=ddSevkYetkili();
   const html=gruplar.slice(0,_ddLimit).map(gr=>{
     const r0=gr.rs[0];
-    return `<div class="card"><div class="dd-sip"><span class="gk-sno">${esc(r0.sno)}</span>
-      <span class="gk-firma">${esc(r0.firma)}${r0.kapali?' · kapalı sipariş':''}</span></div>${gr.rs.map(r=>ddKalemHtml(r,yetkili)).join('')}</div>`;
+    /* Sipariş no + müşteri adı yan yana, aynı belirginlikte (kullanıcı, 13.10.2026) */
+    return `<div class="card"><div class="dd-sip"><span class="gk-sno">${esc(r0.sno)}${r0.firma?` <span class="dd-musteri">· ${esc(r0.firma)}</span>`:''}</span>
+      ${r0.kapali?`<span class="gk-firma">kapalı sipariş</span>`:''}</div>${gr.rs.map(r=>ddKalemHtml(r,yetkili)).join('')}</div>`;
   }).join('');
   const kalan=gruplar.length-_ddLimit;
   host.innerHTML=html+(kalan>0?`<button type="button" class="dd-daha" onclick="_ddLimit+=DD_LIMIT_ADIM;ddListeCiz()">${kalan} sipariş daha göster</button>`:'');
@@ -3675,8 +3677,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261013-e9b95e20';
-const PANEL_ZAMAN=1791882851;
+const PANEL_SURUM='20261013-e8d40066';
+const PANEL_ZAMAN=1791889490;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
