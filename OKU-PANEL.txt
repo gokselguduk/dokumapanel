@@ -15,6 +15,8 @@ Kullanıcı:
   • Çıkan topun METRE'sini ve KG / ADET'ini yazar
   • Kaydet'e basar — her top ayrı satır olur
   • "Girişler" sekmesinden Düzenle ile miktarı değiştirir ya da kaydı siler
+    (12.10.2026: Girişler bütün kaynakları listeler — tablet, ana program,
+    Tezgah Planlama; tablet dışı kayıt salt okunur görünür)
 
 Görünmez: sipariş girişi, depo, sevk, konfeksiyon, planlama, raporlar.
 
@@ -91,8 +93,22 @@ bugüne döner (ileri güne gidilmez).
       (depo_hareket_iz; kaynak DOKUMA_SEVK_DUZELT / DOKUMA_SEVK_GERI) →
       ana programda Günlük İşlemler ve zil.
 
+TABLETTEN SEVK — ONAY VE KLAVYE (12.10.2026 akşam)
+--------------------------------------------------
+"Sevk et"e basınca onay sayfanın içinde sorulur ("✔ Evet, sevk et" /
+"Vazgeç"); tabletin kendi soru penceresi kullanılmaz. Eksik ya da fazla
+miktar gibi hatalar formun içinde kırmızı satırda da yazar.
+Sevk kutuları (metre / adet) STANDART klavyeyi açar (kullanıcı isteği).
+
 YENİ SÜRÜM KİLİTLİ TABLETE NASIL GELİR
 -------------------------------------
+YÜKLEME: node scripts/paket-dokuma-github.js → _uretilen/dokuma-panel-github/
+klasörünün İÇİNDEKİ BÜTÜN dosyalar dokumapanel deposuna. mobil/dokuma-panel/
+klasöründen YÜKLENMEZ (12.10'da iki kez böyle yüklendi, tablet eski sayfada
+kaldı). 12.10 akşamından itibaren tablet, surum.json unutulsa bile sayfa
+dosyasının tarihinden de yeni sürümü anlar. Açık sayfanın sürümü karşılama
+sayfasının altında yazar ("Sürüm: …") — tablet güncellendi mi oradan bakılır.
+
 Kilitli tablet sayfayı kendiliğinden yeniden açmaz. GitHub paketi
 (node scripts/paket-dokuma-github.js) içerikten bir sürüm üretir, html'e
 gömer ve surum.json'a yazar — İKİSİ BİRLİKTE yüklenmeli. Tablet ekran
