@@ -98,7 +98,30 @@ TABLETTEN SEVK — ONAY VE KLAVYE (12.10.2026 akşam)
 "Sevk et"e basınca onay sayfanın içinde sorulur ("✔ Evet, sevk et" /
 "Vazgeç"); tabletin kendi soru penceresi kullanılmaz. Eksik ya da fazla
 miktar gibi hatalar formun içinde kırmızı satırda da yazar.
-Sevk kutuları (metre / adet) STANDART klavyeyi açar (kullanıcı isteği).
+
+KLAVYE KURALI (13.10.2026, kullanıcı kararı — 12.10 akşamındaki "sevk
+kutuları standart klavye açar" kuralının yerini aldı):
+  - Sayı girilen HER kutu (metre / adet / kg — üretim girişi, düzeltme,
+    tezgah penceresi, sevk, sevk düzeltme) yalnız SAYI TUŞ TAKIMINI açar
+    (inputmode="decimal").
+  - Yazı girilen kutular (kullanıcı adı, şifre, aramalar) tabletin
+    STANDART klavyesini açar.
+Panelin kendi çizdiği bir klavye YOKTUR; açılan, tabletin (Samsung)
+klavyesidir. Klavye küçük ve parmakla gezdirilebilir görünüyorsa tablet
+"yüzen klavye" modundadır — sayfadan değiştirilemez, tablette klavyenin
+üstündeki araç çubuğundan (⋯ → Modlar → Standart klavye) düzeltilir.
+
+SORULAR SAYFANIN İÇİNDE — SİLME (13.10.2026)
+--------------------------------------------
+Kilitli tablette tarayıcının soru penceresi (confirm) açılmıyor, "hayır"
+dönüyor: Girişler → Düzenle → "🗑 Sil" hiçbir şey yapmıyordu (aynı kod
+bilgisayar tarayıcısında siliyordu). Bütün sorular artık sayfanın içinde
+sorulur (sayfaSor): top silme, sevk silme, bekleyen top silme, ikiz top
+uyarısı, çıkış. Bu dosyada confirm() KULLANILMAZ (bekçi denetler).
+Silinen top hiç girilmemiş gibi olur: kayıt ve toplamlar düşer; Dokuma
+Takip, Dokuma Depo, Tezgah Planlama ve raporlar onu saymaz. Yalnız "kim,
+ne zaman, neyi sildi" izi ayrı satırda kalır (ana programda Günlük
+İşlemler / operasyon günlüğü).
 
 YENİ SÜRÜM KİLİTLİ TABLETE NASIL GELİR
 -------------------------------------

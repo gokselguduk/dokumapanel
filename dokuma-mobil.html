@@ -430,6 +430,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    fonksiyonlar (konfKalemUretimSayilari, dokumaUrunIkinciOzet, kalemOzet …) veriyi toplayıp bunu çağırır.
    Yalnız `function` bildirimi kullanılır (blok iki kez yüklense de çakışmaz); adlar `ortak` ile başlar. */
 
+/* ── Sabitler ────────────────────────────────────────────────────────────
+   Üç programda AYNI olması gereken değerler (13.10.2026: eskiden her platformda elle yazılıydı, eşitliğini yalnız
+   bekçi denetliyordu). Bu dosyada üst düzey const / let YOK; sabit, değerini döndüren fonksiyondur — platform kendi
+   adını (KESIM_ONU_BASLANGIC, DD_ETIKET …) bundan kurar, değeri kendisi YAZMAZ. */
+
+/** Dokuma Depo başlangıcı — 31.07.2026 00:00 (yerel): daha eski giriş depoda sayılmaz. */
+function ortakDepoBaslangicMs() { return new Date(2026, 6, 31).getTime(); }
+/** Dokuma Depo sevk defteri etiketi (kumas_stok notlar) — yazan da okuyan da bunu kullanır. */
+function ortakDepoSevkEtiket() { return '[DD_V2]'; }
+/** Dokuma Depo → Konfeksiyon sevkinin pipeline adı (siparis_akis KUMAS_GELIS notu) — yazan da okuyan da. */
+function ortakKesimOnuPipeline() { return 'DOKUMA_DEPO_SEVK'; }
+/** Kesim önü başlangıcı — 12.10.2026 00:00 (yerel): daha eski sevk "kesim önünde bekleyen" sayılmaz. */
+function ortakKesimOnuBaslangicMs() { return new Date(2026, 9, 12).getTime(); }
+/** Kesim satırı (konf_kesim_yikama) türleri — `kaynak` alanına yazılan değer. */
+function ortakKesimKaynakDevir() { return 'DEVIR'; }
+function ortakKesimKaynakKesimsiz() { return 'KESIMSIZ_YIKAMA'; }
+/** Devir satırı mı: eski dönemden aktarılan mal, kesim girişi değildir. */
+function ortakKesimDevirMi(kaynak) { return String(kaynak || '').toUpperCase() === ortakKesimKaynakDevir(); }
+/** Kesimsiz yıkama satırı mı: kesimi girilmeden yıkamaya giden mal, kesim girişi değildir (kesilen adedi 0). */
+function ortakKesimKesimsizMi(kaynak) { return String(kaynak || '').toUpperCase() === ortakKesimKaynakKesimsiz(); }
+
+/** Ürün Ağacındaki küçük ondalıklar (m/adet, %): "1,3" ve "1.3" ikisi de 1,3. Eski kayıtlarda virgüllü metin var;
+ *  parseFloat onu 1 okuyordu (SP437: 195 m yerine 150 m). Sayı değilse 0. */
+function ortakSayi(v) {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    let s = String(v == null ? '' : v).trim().replace(/\s+/g, '');
+    if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '');
+    const n = parseFloat(s.replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+}
+
 /** Sipariş kaleminin birimi: 'MT' | 'KG' | 'ADET' (başka her yazım ADET). */
 function ortakKalemBirim(kalem) {
     const u = String((kalem && kalem.birim) || 'ADET').toUpperCase();
@@ -602,15 +633,17 @@ function ortakDepoDefterTopla(rows) {
 /* ── Kesim önünde bekleyen ───────────────────────────────────────────── */
 
 /** TEK KURAL — dokumadan Konfeksiyon'a sevk edilen mal kesilene kadar bekler; kalem başına HESAP (kayıt değişmez):
- *    gelen   = kalemin AÇIK sevk satırları. Çağıran süzer: yalnız Dokuma Depo sevki, başlangıç gününden sonrası,
- *              sıfırlanan ve "✓ Bitti" ile kapatılan satır hariç.
- *    kesilen = kalemin İLK sevkinden sonra girilen kesimler. Çağıran süzer: iptal, Devir ve kesimsiz yıkama hariç.
- *              Sevk satırına eskiden işlenmiş kesilen adedi (kes) ile büyüğü — aynı kesim iki kez düşmez.
+ *    gelen   = kalemin AÇIK sevk satırları: yalnız Dokuma Depo sevki, başlangıç gününden sonrası, sıfırlanan ve
+ *              "✓ Bitti" ile kapatılan satır hariç. Süzgeç aşağıda — ortakKesimOnuSevkOku (kapalı olmayanlar verilir).
+ *    kesilen = kalemin İLK sevkinden sonra girilen kesimler: iptal, Devir ve kesimsiz yıkama hariç (süzgeç aşağıda —
+ *              ortakKesimOnuKesimOku). Sevk satırına eskiden işlenmiş kesilen adedi (kes) ile büyüğü — aynı kesim
+ *              iki kez düşmez.
  *    kalan   = gelen − kesilen (adet). Adetsiz, metreyle gelen kumaşta (kumaş planı) kesilen adet × kalemin 1 adet
  *              için kumaş metresi düşülür; metresi bilinmeyen kalemin kesimi metreden düşülemez (metresizAd).
  *  sevkler  : [{ sid, ki, t, ad, mt, kg, kes, … }] — sid metin, ki sayı, t milisaniye; ek alanlar aynen taşınır
  *  kesimler : [{ sid, ki, t, ad }]
- *  kumasKalemleri(sid, ki) → { km, kalemler: [{ ki, m }] } | null   (m = fire dahil 1 adet için metre)
+ *  kumasKalemleri(sid, ki) → { km, kalemler: [{ ki, m }] } | null   (m = fire dahil 1 adet için metre;
+ *                            platform siparişin planını kurar, ortakKesimOnuKumasKalemleri döndürür)
  *  Dönen: bekleyen kalemler, en uzun bekleyen üstte:
  *    { sid, ki, sevkler (eskiden yeniye), ilk, gelenAd, gelenMt, gelenKg, satirKes, metreMi,
  *      kesilenAd, kalanAd  |  kumas, kesilenAd, kesilenMt, metresizAd, kalanMt,  bekleyenTs } */
@@ -668,6 +701,131 @@ function ortakKesimOnuHesapla(sevkler, kesimler, kumasKalemleri) {
         out.push(g);
     });
     return out.sort((a, b) => a.bekleyenTs - b.bekleyenTs);
+}
+
+/* Kesim önü süzgeci (13.10.2026): hangi sevk satırı ve hangi kesim satırı hesaba girer — eskiden ana programda
+   (konfKesimOnuBekleyenler) ve Konfeksiyon Panel'de (kesimOnuSevkleriOku / kesimOnuHesapla) ayrı ayrı yazılıydı. */
+
+/** Sevk satırını (siparis_akis KUMAS_GELIS) okur ve süzer. j = satırın notu (nesne), olusturma = satırın created_at'i.
+ *  SAYILMAYAN satırda null: Dokuma Depo sevki değil (pipeline), geçici sıfırlanmış, kalemi yok, başlangıç gününden eski.
+ *  Dönen: { ki, t, ad, mt, kg, kes, kapali } — t milisaniye (notun ts'i, yoksa created_at), kes = satıra eskiden
+ *  işlenmiş kesilen adet, kapali = "✓ Bitti" işareti (kesim_onu_kapali nesnesi) ya da null.
+ *  Kapalı satır bekleyen hesabına GİRMEZ: çağıran onu ortakKesimOnuHesapla'ya vermez, "Kapatılanlar" listesinde tutar. */
+function ortakKesimOnuSevkOku(j, olusturma) {
+    if (!j || j.pipeline !== ortakKesimOnuPipeline() || j.gecici_kesim_onu_sifir) return null;
+    const ki = parseInt(j.kalem_idx, 10);
+    const t = Date.parse(j.ts || olusturma || '') || 0;
+    if (!Number.isFinite(ki) || ki < 0 || t < ortakKesimOnuBaslangicMs()) return null;
+    return {
+        ki, t,
+        ad: parseInt(j.adet || 0, 10) || 0, mt: parseFloat(j.mt) || 0, kg: parseFloat(j.kg) || 0,
+        kes: parseInt(j.kesilen_adet || 0, 10) || 0,
+        kapali: j.kesim_onu_kapali || null
+    };
+}
+
+/** Kesim satırı (konf_kesim_yikama) kesim girişi sayılır mı: iptal (aktif=false), Devir ve kesimsiz yıkama SAYILMAZ. */
+function ortakKesimSatiriSayilirMi(kaynak, aktif) {
+    return aktif !== false && !ortakKesimDevirMi(kaynak) && !ortakKesimKesimsizMi(kaynak);
+}
+
+/** Kesim satırını okur: { sid, ki, t, ad } | null (sayılmayan satır). r = konf_kesim_yikama satırı ya da ana programın
+ *  ondan kurduğu önbellek satırı; zaman = kesim_ts, yoksa created_at (önbellek satırında ikisi `ts` alanında). */
+function ortakKesimOnuKesimOku(r) {
+    if (!r || !ortakKesimSatiriSayilirMi(r.kaynak, r.aktif)) return null;
+    return {
+        sid: String(r.siparis_id), ki: Number(r.kalem_idx),
+        t: Date.parse(r.kesim_ts || r.ts || r.created_at || '') || 0,
+        ad: parseInt(r.kesilen_adet, 10) || 0
+    };
+}
+
+/* ── Kumaş planı ─────────────────────────────────────────────────────── */
+
+/** Plandaki kumaşlar (KD_URUN_AGACI siparis.kumas_plani.kumaslar) → [{ id, kod, ad, cekme }] (hepsi metin).
+ *  Kimliği (A, B …) boş satır kumaş değildir. */
+function ortakKumasPlaniKumaslar(ham) {
+    return (Array.isArray(ham) ? ham : []).map((k) => ({
+        id: String((k && k.id) || ''), kod: String((k && k.kod) || ''), ad: String((k && k.ad) || ''),
+        cekme: String(k && k.cekme != null ? k.cekme : '')
+    })).filter((k) => k.id);
+}
+
+/** Planda kumaş var mı (kimlikli en az bir kumaş). Yoksa hiçbir kalem kumaşa bağlı değildir — liste çizen platform
+ *  kalemleri hiç açmadan bununla erken çıkar (plansız siparişte ek yük olmasın). */
+function ortakKumasPlaniVarMi(kumaslarHam) {
+    return Array.isArray(kumaslarHam) && kumaslarHam.some((k) => !!(k && k.id));
+}
+
+/** TEK KURAL — kumaş planı eşlemesi (13.10.2026; eskiden üç kopya: ana program kumasPlaniHesapla, Konfeksiyon Panel
+ *  kesimOnuKumasKalemleri, Dokuma Panel tzKalemKumasi): hangi kalem hangi kumaştan, 1 adet için kaç metre.
+ *    kumaslarHam    : plandaki kumaşlar (KD_URUN_AGACI siparis.kumas_plani.kumaslar)
+ *    kalemler       : sipariş kalemleri — sıra = kalem numarası (ki)
+ *    kalemAgaci(ki) : kalemin ürün ağacı (KD_URUN_AGACI u_<ki>): kumas_id, kumas_metre, kumas_tolerans, asamalar
+ *  Kalemin kumaşı (kumas_id): plandaki bir kimlik → o kumaş;  '' → plandaki TEK kumaş (birden çok kumaş varsa hiçbiri);
+ *  '-' → kumaştan değil;  planda olmayan kimlik → hiçbiri.
+ *  Kalem satırı: { ki, birim, metreMi, kgMi, adet, m, fire, secim, kumasId, otomatik, boyali, adetMetre, dokunur }
+ *    m = 1 adet için boyalı kumaş (m), fire = kesim firesi (%) — virgüllü yazım da okunur ("1,5");
+ *    adetMetre = m × (1 + fire): fire DAHİL 1 adet için kumaş. Metre / kg birimli kalemde 0 (adetten metreye çevrilmez);
+ *    boyali    = adet × m × (1 + fire). Metre birimli kalem kendi metresiyle girer, kg birimli kalem 0;
+ *    dokunur   = kalemin aşamalarında "dokuma" var ya da aşaması hiç tanımlı değil.
+ *  Kumaş: { id, kod, ad, cekme, cekmePct, kalemler (satırlar, kalem sırasıyla), oncuKi (İLK kalemi — dokuma girişi oraya
+ *    yazılır), dokunur (kalemlerinden biri dokunuyorsa), boyali (kalemlerin toplamı), ham = boyali × (1 + çekme) }
+ *  Dönen: { var (planda kumaş var mı), kumaslar, satirlar (her kalem, kumaşı olmayan da) }. */
+function ortakKumasPlani(kumaslarHam, kalemler, kalemAgaci) {
+    const kumaslar = ortakKumasPlaniKumaslar(kumaslarHam).map((k) => {
+        k.cekmePct = ortakSayi(k.cekme);
+        k.kalemler = [];
+        k.oncuKi = null;
+        k.dokunur = false;
+        k.boyali = 0;
+        k.ham = 0;
+        return k;
+    });
+    const byId = new Map(kumaslar.map((k) => [k.id, k]));
+    const tek = kumaslar.length === 1 ? kumaslar[0].id : null;
+    const satirlar = (Array.isArray(kalemler) ? kalemler : []).map((k, ki) => {
+        const ua = (typeof kalemAgaci === 'function' ? kalemAgaci(ki) : null) || {};
+        const secim = String(ua.kumas_id || '');
+        const kumasId = secim === '-' ? null : (byId.has(secim) ? secim : (!secim && tek ? tek : null));
+        const birim = ortakKalemBirim(k);
+        const metreMi = birim === 'MT';
+        const kgMi = birim === 'KG';
+        const adet = metreMi || kgMi ? 0 : (parseInt(k && k.miktar, 10) || 0);
+        const m = ortakSayi(ua.kumas_metre);
+        const fire = ortakSayi(ua.kumas_tolerans);
+        const net = metreMi ? ortakSayi(k && k.miktar) : (kgMi ? 0 : adet * m);
+        const asama = ua.asamalar;
+        return {
+            ki, birim, metreMi, kgMi, adet, m, fire, secim, kumasId, otomatik: !secim && !!kumasId,
+            boyali: net * (1 + fire / 100),
+            adetMetre: (metreMi || kgMi) ? 0 : m * (1 + fire / 100),
+            dokunur: !Array.isArray(asama) || !asama.length || asama.includes('dokuma')
+        };
+    });
+    satirlar.forEach((r) => {
+        const km = byId.get(r.kumasId);
+        if (!km) return;
+        if (!km.kalemler.length) km.oncuKi = r.ki;
+        km.kalemler.push(r);
+        km.boyali += r.boyali;
+        if (r.dokunur) km.dokunur = true;
+    });
+    kumaslar.forEach((km) => { km.ham = km.boyali * (1 + km.cekmePct / 100); });
+    return { var: kumaslar.length > 0, kumaslar, satirlar };
+}
+
+/** Kalemin kumaşı (ortakKumasPlani çıktısından): kumaş nesnesi | null (kalem bir kumaşa bağlı değil). */
+function ortakKumasPlaniKalemKumasi(plan, ki) {
+    const n = Number(ki);
+    return ((plan && plan.kumaslar) || []).find((km) => km.kalemler.some((r) => r.ki === n)) || null;
+}
+
+/** Kesim önü için — metreyle gelen kumaşın kalemleri: { km, kalemler: [{ ki, m }] } | null
+ *  (m = fire dahil 1 adet için metre; ortakKesimOnuHesapla'nın kumasKalemleri geri çağrısı bunu döndürür). */
+function ortakKesimOnuKumasKalemleri(plan, ki) {
+    const km = ortakKumasPlaniKalemKumasi(plan, ki);
+    return km ? { km, kalemler: km.kalemler.map((r) => ({ ki: r.ki, m: r.adetMetre })) } : null;
 }
 /* ORTAK-KURALLAR:SON */</script>
 <script>
@@ -853,9 +1011,9 @@ async function doLogin(){
 function normalizeAllowed(r){if(!r)return[];if(Array.isArray(r))return r;try{const j=JSON.parse(r);return Array.isArray(j)?j:[];}catch{return[];}}
 function showLoginErr(m){const el=document.getElementById('login-err');el.textContent=m;el.style.display='block';}
 function showErr(m){document.getElementById('login-screen').innerHTML+=`<div style="margin-top:20px;padding:14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;color:#ef4444;font-size:13px;max-width:340px;text-align:center">${esc(m)}</div>`;}
-function doLogout(){
+async function doLogout(){
   const bek=bekleyenler().length;
-  if(bek&&!confirm(`${bek} top henüz gönderilmedi.\nTablette saklanır; bu tablette yeniden giriş yapılınca gönderilir.\n\nÇıkış yapılsın mı?`))return;
+  if(bek&&!await sayfaSor(`${bek} top henüz gönderilmedi.\nTablette saklanır; bu tablette yeniden giriş yapılınca gönderilir.\n\nÇıkış yapılsın mı?`,{evet:'Çıkış yap'}))return;
   if(typeof panelCikisBildir==='function')panelCikisBildir();
   localStorage.removeItem(SESSION_KEY);localStorage.removeItem(UI_STATE_KEY);
   currentUser=null;siparisler=[];
@@ -935,8 +1093,10 @@ let _sipIz=null,_sipTazeleniyor=false,_sonEtkilesim=Date.now();
 ['pointerdown','keydown','touchstart'].forEach(t=>window.addEventListener(t,()=>{_sonEtkilesim=Date.now();},{passive:true,capture:true}));
 function panelMesgulMu(){
   if(Date.now()-_sonEtkilesim<30000)return true;
-  /* yalnız ekranda görünen kutu — kapatılan tezgah penceresinde kalan değer tazelemeyi hep durdurmasın */
-  return[...document.querySelectorAll('.gk-inp')].some(i=>i.offsetParent!==null&&String(i.value||'').trim());
+  /* yalnız ekranda görünen kutu — kapatılan tezgah penceresinde kalan değer tazelemeyi hep durdurmasın.
+     Tarih kutusu sayılmaz: Depo sekmesindeki "Sevk edilenler" gün seçicisi hep doludur — sekme açık kaldıkça panel
+     hep "meşgul" görünüyor, tablet yeni sürümü de sipariş listesini de almıyordu (13.10.2026). */
+  return[...document.querySelectorAll('.gk-inp')].some(i=>i.type!=='date'&&i.offsetParent!==null&&String(i.value||'').trim());
 }
 async function siparisDegisimKontrol(){
   if(_sipTazeleniyor||!sb||!currentUser||!_sipIz||navigator.onLine===false||document.hidden||panelMesgulMu())return;
@@ -953,6 +1113,143 @@ async function siparisDegisimKontrol(){
 }
 setInterval(siparisDegisimKontrol,180000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(siparisDegisimKontrol,1500);});
+
+/* ── Kendiliğinden tazeleme (13.10.2026) ─────────────────────────────
+   Kullanıcı kuralı: "bu 3 program … birbirinden farklı sonuçlar bulamaz, tek bir doğru var". Hesap kuralı ortak
+   (ORTAK-KURALLAR), ama başka cihazdan girilen top bu tablette 🔄 Yenile'ye basılana ya da ürün yeniden aranana kadar
+   eski sayıyla duruyordu. Kullanıcı kararı (13.10.2026): "Aç · rakamlar hemen" — 10 sn, rakamlar yerinde, listeler boştayken.
+   Nasıl (ölçüldü, canlı): 10 sn'de bir tek küçük "damga" isteği (61 bayt, ~0,4 sn) = dokuma kaplarının sayısı + en son
+   değişenin saati (siparis_akis.updated_at'i sunucu yeniler — KD satırı yerinde değişince de). Damga değişmişse "o saatten
+   sonra değişen siparişler" sorulur ve YALNIZ onların kabı okunur (~2 KB / sipariş; 🔄 Yenile ~1 MB okur). Sonra:
+     · ekrandaki kartların RAKAMLARI yerinde yenilenir (gkKartTazele: yalnız sayaç hücreleri — kutular, yazılan sayı,
+       "son kayıt" satırı ve liste oynamaz) — yazarken de;
+     · Girişler / Depo / Siparişler LİSTELERİ yalnız kimse yazmıyorken (30 sn dokunulmamış, dolu kutu / açık form /
+       pencere yok) çizilir; o âna kadar bayrak bekler. Liste, ham kaplardan yeniden kurulur (bütün kaplar okunmaz).
+   Depo sekmesi açıkken sevk defterinin damgası da sorulur (ikinci küçük istek). Ekran kapalı / karşılama açık /
+   internet yokken istek atılmaz; açılınca hemen bakılır. Yalnız okuma — hiçbir şey yazmaz.
+   Konfeksiyon Panel'deki karşılığı aynı adlarla (tazeIzleTick). */
+const TAZE_MS=10000;
+let _tazeIz=null,_tazeDefterIz=null,_tazeMesgul=false,_tazeYazma=0;
+let _tazeOku=new Set(),_tazeOkuHepsi=false,_tazeSipCiz=false,_tazeSevkCiz=false;
+/** Damga: süzgeçteki satır sayısı + en son değişen satırın saati. Okunamazsa null (o tur atlanır). */
+async function tazeDamga(tablo,suz){
+  const{data,error,count}=await suz(sb.from(tablo).select('id,updated_at',{count:'exact'}))
+    .order('updated_at',{ascending:false,nullsFirst:false}).limit(1);
+  if(error||count==null)return null;
+  return{say:count,upd:String(data?.[0]?.updated_at||'')};
+}
+function tazeDamgaAyni(a,b){return!!a&&!!b&&a.say===b.say&&a.upd===b.upd;}
+/** Liste yeniden çizilmesin: yazılıyor, form / pencere açık ya da az önce dokunuldu. Rakamlar (kartlar) bunu beklemez. */
+function tazeListeMesgul(){
+  if(panelMesgulMu())return true;
+  if(['detay-modal','tezgah-modal'].some(id=>{const d=document.getElementById(id)?.style.display;return!!d&&d!=='none';}))return true;
+  return[...document.querySelectorAll('[id^="vg-form-"]:not([hidden]),[id^="dd-form-"]:not(:empty),[id^="dd-sform-"]:not([hidden])')].some(e=>e.offsetParent!==null);
+}
+async function tazeIzleTick(){
+  if(_tazeMesgul||!sb||!currentUser||document.hidden||navigator.onLine===false||karsilamaAcik())return;
+  _tazeMesgul=true;
+  try{
+    const depoAcik=aktifTabId()==='depo';
+    if(!depoAcik)_tazeDefterIz=null;
+    const[akis,defter]=await Promise.all([
+      tazeDamga('siparis_akis',q=>q.eq('islem',KD_TIP)),
+      depoAcik?tazeDamga('kumas_stok',q=>q.like('notlar','%'+DD_ETIKET+'%')):null
+    ]);
+    if(akis&&!tazeDamgaAyni(_tazeIz,akis))await tazeKdDegisti(akis);
+    if(defter&&!tazeDamgaAyni(_tazeDefterIz,defter)){
+      /* sevk defteri küçük: değişince tamamı okunur (sekme yeni açıldıysa da — önbellek 60 sn eski olabilir) */
+      if(_ddKd){_ddDefter=await ddDefterOku();_ddKurBekliyor=true;_tazeSevkCiz=true;}
+      _tazeDefterIz=defter;
+    }
+    await tazeKaplariOku();
+    await tazeListeleriCiz();
+  }catch(e){}
+  finally{_tazeMesgul=false;}
+}
+/** Dokuma kaplarının damgası değişti: hangi siparişler? Bilinemiyorsa (ilk bakış, silinen satır, çok sayıda değişiklik)
+    ekrandaki kartların hepsi yeniden okunur, listeler baştan okunmak üzere işaretlenir. */
+async function tazeKdDegisti(akis){
+  const once=_tazeIz;
+  let sids=null;
+  if(once&&akis.say>=once.say){
+    /* 10 sn pay: aynı anda biten iki yazmadan saati daha eski olan kaçmasın */
+    const t=new Date((Date.parse(once.upd)||0)-10000).toISOString();
+    const{data,error}=await sb.from('siparis_akis').select('siparis_id').eq('islem',KD_TIP).gt('updated_at',t).limit(200);
+    if(error)throw error;                 /* damga ilerletilmedi → sonraki turda yeniden sorulur */
+    if((data||[]).length<=60)sids=new Set((data||[]).map(r=>String(r.siparis_id)));
+  }
+  _tazeIz=akis;
+  /* önbellek: değişen siparişin kabı bayat — sonraki arama taze okur */
+  const on=KD_TIP+'_';
+  Object.keys(kdCacheTs).forEach(k=>{if(k.startsWith(on)&&(!sids||sids.has(k.slice(on.length))))kdCacheTs[k]=0;});
+  if(sids){sids.forEach(id=>_tazeOku.add(id));return;}
+  _tazeOkuHepsi=true;
+  if(_vgCache){if(aktifTabId()==='girisler')_vgOkuBekliyor=true;else{_vgCache=null;_vgKd=null;}}
+  if(_ddCache){if(aktifTabId()==='depo')_ddOkuBekliyor=true;else _ddCacheTs=0;}
+}
+/** Değişen siparişlerin kabını tek istekte okur; kartların rakamını yerinde yeniler, listelerin ham verisini günceller. */
+async function tazeKaplariOku(){
+  const hepsi=_tazeOkuHepsi;
+  const ekran=new Set(_uaSonSatirlar.map(r=>String(r.siparisId)));
+  _tzAktifSatirlar.forEach((v,rid)=>ekran.add(rid.slice(0,rid.lastIndexOf('-'))));
+  const ids=hepsi?[...ekran]:[..._tazeOku];
+  if(!ids.length){_tazeOkuHepsi=false;return;}
+  if(_bekleyenGonderiliyor)return;        /* sıradaki toplar yazılıyor: sonraki turda */
+  const y=_tazeYazma,grup=new Map();
+  for(let i=0;i<ids.length;i+=60){
+    const{data,error}=await sb.from('siparis_akis').select('siparis_id,kalem_ad,notlar,created_at')
+      .in('siparis_id',ids.slice(i,i+60)).eq('islem',KD_TIP).order('created_at',{ascending:false});
+    if(error)throw error;
+    (data||[]).forEach(r=>{const sid=String(r.siparis_id);if(!grup.has(sid))grup.set(sid,[]);grup.get(sid).push(r);});
+  }
+  if(y!==_tazeYazma)return;               /* okurken bu tabletten top yazıldı: yazmadan önceki hâl ekrana basılmaz */
+  const on=KD_TIP+'_',now=Date.now(),okunan=new Set(ids);
+  ids.forEach(id=>{
+    const kd=kdSatirlardanSec(grup.get(id)||[]);
+    kdCache[on+id]=kd;kdCacheTs[on+id]=now;
+    _tazeOku.delete(id);
+    if(grup.has(id)&&!dokunanIds.has(id)){dokunanIds.add(id);_tazeSipCiz=true;}
+    if(hepsi)return;
+    if(_vgKd&&siparisler.some(s=>String(s.id)===id)){_vgKd.set(id,kd);_vgKurBekliyor=true;}
+    if(_ddKd){_ddKd.set(id,kd);_ddKurBekliyor=true;}
+  });
+  if(hepsi)_tazeOkuHepsi=false;
+  /* rakamlar: yalnız sayaç hücreleri */
+  _uaSonSatirlar.forEach(r=>{if(okunan.has(String(r.siparisId)))gkKartTazele(r.siparisId,r.kalemIdx);});
+  _tzAktifSatirlar.forEach((tz,rid)=>{
+    const i=rid.lastIndexOf('-'),sid=rid.slice(0,i);
+    if(!okunan.has(sid))return;
+    tz.ozet=kalemOzet(tz.kalem,kdCache[on+sid]?.urunler?.[parseInt(rid.slice(i+1),10)]||{});
+    const el=document.getElementById('tzgk-say-'+rid);
+    if(el)el.innerHTML=gkSayacHtml(tz.ozet);
+  });
+}
+/** Listeler yalnız kimse yazmıyorken çizilir; o âna kadar bayrak bekler (her turda yeniden bakılır). Önbellek
+    (_vgCache / _ddCache) ekrandaki listeyle AYNI anda değişir — açık form satırını orada arar. */
+async function tazeListeleriCiz(){
+  const t=aktifTabId();
+  if(t==='siparisler'){
+    if(_tazeSipCiz&&!tazeListeMesgul()){_tazeSipCiz=false;renderSiparisler();}
+  }else if(t==='girisler'){
+    if(!(_vgKurBekliyor||_vgOkuBekliyor)||tazeListeMesgul())return;
+    if(_vgOkuBekliyor){_vgKd=await vgKdOku();_vgOkuBekliyor=false;_vgKurBekliyor=true;}
+    if(!_vgKd)return;
+    const l=await vgListeKur();
+    if(aktifTabId()!=='girisler'||tazeListeMesgul())return;       /* kurulurken dokunuldu: bayrak durur */
+    _vgCache=l;_vgKurBekliyor=false;vgListeCiz();
+  }else if(t==='depo'){
+    if(!(_ddKurBekliyor||_ddOkuBekliyor||_tazeSevkCiz)||tazeListeMesgul())return;
+    if(_ddOkuBekliyor){const h=await ddHamOku();_ddKd=h.kd;_ddDefter=h.defter;_ddCacheTs=Date.now();_ddOkuBekliyor=false;_ddKurBekliyor=true;}
+    if(_ddKurBekliyor&&_ddKd){
+      const l=await ddListeKur();
+      if(aktifTabId()!=='depo'||tazeListeMesgul())return;
+      _ddCache=l;_ddKurBekliyor=false;ddListeCiz();
+    }
+    if(_tazeSevkCiz){_tazeSevkCiz=false;ddSevklerRender();}
+  }
+}
+setInterval(tazeIzleTick,TAZE_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(tazeIzleTick,600);});
 
 /** Sayfa sayfa çeker (range). sorguKur her sayfada TAZE bir sorgu üretmeli. */
 async function tumSatirlariCek(sorguKur){
@@ -1307,6 +1604,7 @@ async function kdDokumaYaz(siparisId,kd,satirVar){
 function kdOnbellegeYaz(siparisId,kd){
   kdCache[KD_TIP+'_'+siparisId]=kd;
   kdCacheTs[KD_TIP+'_'+siparisId]=Date.now();
+  _tazeYazma++;   /* kendiliğinden tazeleme: bu sırada okunan (yazmadan önceki) hâl ekrana basılmaz */
 }
 
 /** Yeni topun kimliği: gid + girildiği an + giren. Bekleyen top sonradan gönderilse de
@@ -1443,11 +1741,11 @@ async function dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet){
   const yer=g=>({DOKUMA_PANEL:'Dokuma Panel',TEZGAH_PLANLAMA:'Tezgah Planlama'})[g.kaynak]||(String(g.gid||'').startsWith('dt-')?'Dokuma Takip':(g.kaynak||'kaynak yok'));
   const k=parseKalemler(sip||{})[kalemIdx]||{};
   const ad=kalemEtiket(k,kalemIdx);
-  const ok=confirm('⚠ AYNI KALEME AYNI TOP SON '+DOKUMA_IKIZ_DK+' DAKİKADA GİRİLMİŞ\n\n'+(sip?.sno||'')+' · '+ad
+  const ok=await sayfaSor('⚠ AYNI KALEME AYNI TOP SON '+DOKUMA_IKIZ_DK+' DAKİKADA GİRİLMİŞ\n\n'+(sip?.sno||'')+' · '+ad
     +'\nGirmek istediğiniz: '+girisMiktarOzeti({metre,kg,adet})+'\n'
     +es.map(g=>{const t=new Date(g.tarih_iso);return '  • '+(Number.isNaN(t.getTime())?'':t.toLocaleString('tr-TR'))+' · '
       +girisMiktarOzeti(g)+' · '+yer(g)+(g.tezgah_no?' · tezgah '+g.tezgah_no:'')+((g.user||g.kullanici)?' · '+(g.user||g.kullanici):'');}).join('\n')
-    +'\n\nAynı topu ikinci kez giriyorsanız İPTAL edin — yoksa dokunan iki kez sayılır.\nGerçekten ayrı bir topsa TAMAM ile kaydedin.');
+    +'\n\nAynı topu ikinci kez giriyorsanız İPTAL edin — yoksa dokunan iki kez sayılır.\nGerçekten ayrı bir topsa "Ayrı top — kaydet"e basın.',{evet:'Ayrı top — kaydet',hayir:'İptal'});
   return ok?{ts:new Date().toISOString(),ikiz_gid:es.map(g=>g.gid||g.tarih_iso)}:null;
 }
 
@@ -1501,10 +1799,12 @@ async function bekleyenGonder(elle){
   else if(elle&&agYok)showToast('📡 Hâlâ internet yok — toplar tablette bekliyor',2600);
 }
 
-function bekleyenVazgec(gid){
+async function bekleyenVazgec(gid){
   const k=bekleyenler().find(x=>x.gid===gid);
   if(!k){showToast('Bu top zaten gönderildi — silmek için Girişler sekmesini kullanın',3000);return;}
-  if(!confirm(`Bu top GÖNDERİLMEDEN silinsin mi?\n\n${k.sno} · ${k.etiket}\n${girisMiktarOzeti(k)} · ${String(k.tarih||'').slice(11)}`))return;
+  if(!await sayfaSor(`Bu top GÖNDERİLMEDEN silinsin mi?\n\n${k.sno} · ${k.etiket}\n${girisMiktarOzeti(k)} · ${String(k.tarih||'').slice(11)}`,{evet:'🗑 Sil',tehlike:true}))return;
+  /* soru açıkken top gönderilmiş olabilir */
+  if(!bekleyenler().some(x=>x.gid===gid)){showToast('Bu top bu arada gönderildi — silmek için Girişler sekmesini kullanın',3200);return;}
   bekleyenYaz(bekleyenler().filter(x=>x.gid!==gid));
   bugunCikar(gid);
   document.querySelectorAll(`[data-son-gid="${gid}"]`).forEach(el=>{el.innerHTML='';el.removeAttribute('data-son-gid');});
@@ -1822,22 +2122,19 @@ async function urunAraSatirlariGetir(q){
   }).filter(Boolean);
 }
 
-/* Kumaş planı (masaüstü 29-kumas-plani, kumasPlaniKalemKumasi ile AYNI kural): kalemin kumas_id'si
-   ('' = plandaki tek kumaşa, '-' = kumaştan değil); kumaşın kalemlerinden biri dokuma aşamalı ya da
-   aşaması tanımsızsa kumaş dokunur; kumaşın İLK kalemi kumaşı taşır (dokuma girişi oraya yazılır). */
+/* Kumaş planı — eşleme ORTAK kuralda (30-ortak-kurallar.js ortakKumasPlani; ana programın kumasPlaniHesapla'sı ve
+   Konfeksiyon Panel aynı fonksiyonu çağırır): kalemin kumas_id'si ('' = plandaki tek kumaşa, '-' = kumaştan değil);
+   kumaşın kalemlerinden biri dokuma aşamalı ya da aşaması tanımsızsa kumaş dokunur; kumaşın İLK kalemi kumaşı taşır
+   (dokuma girişi oraya yazılır). Burada yalnız veri verilir + ekran adı kurulur; dokunmayan kumaşta null.
+   kalemler = kumaşın bütün kalem numaraları. */
 function tzKalemKumasi(sip,idx){
   const ua=kdCache['KD_URUN_AGACI_'+sip.id];
-  const kumaslar=ua?.siparis?.kumas_plani?.kumaslar;
-  if(!Array.isArray(kumaslar)||!kumaslar.length)return null;
-  const tek=kumaslar.length===1?kumaslar[0].id:null;
-  const kalemKumas=(ki)=>{const v=String(ua['u_'+ki]?.kumas_id||'');return v==='-'?null:(kumaslar.some(k=>k.id===v)?v:(!v&&tek?tek:null));};
-  const kid=kalemKumas(idx);
-  if(!kid)return null;
-  const uyeler=parseKalemler(sip).map((_,ki)=>ki).filter(ki=>kalemKumas(ki)===kid);
-  const dokunur=uyeler.some(ki=>{const a=ua['u_'+ki]?.asamalar;return!Array.isArray(a)||!a.length||a.includes('dokuma');});
-  if(!dokunur)return null;
-  const km=kumaslar.find(k=>k.id===kid)||{};
-  return{id:kid,oncuKi:uyeler[0],kalemSay:uyeler.length,ad:(km.ad||km.kod||'Kumaş')+' · kumaş '+kid,yalin:km.ad||km.kod||'Kumaş',kod:km.kod||''};
+  const ham=ua?.siparis?.kumas_plani?.kumaslar;
+  if(!ortakKumasPlaniVarMi(ham))return null;   /* plansız sipariş: kalemler açılmadan çıkılır (liste her kalem için sorar) */
+  const km=ortakKumasPlaniKalemKumasi(ortakKumasPlani(ham,parseKalemler(sip),ki=>ua['u_'+ki]),idx);
+  if(!km||!km.dokunur)return null;
+  return{id:km.id,oncuKi:km.oncuKi,kalemSay:km.kalemler.length,kalemler:km.kalemler.map(r=>r.ki),
+    ad:(km.ad||km.kod||'Kumaş')+' · kumaş '+km.id,yalin:km.ad||km.kod||'Kumaş',kod:km.kod||''};
 }
 
 function gkSatirHtml(r){
@@ -1963,7 +2260,7 @@ async function gkKaydet(siparisId,kalemIdx){
 }
 
 async function gkGeriAl(btn,siparisId,kalemIdx,gid){
-  if(!confirm('Bu top kaydı silinsin mi?\n(Dokuma Takip ve Dokuma Depo listesinden de düşer)\n\nSilme işlemi adınızla kayda geçer.'))return;
+  if(!await sayfaSor('Bu top kaydı silinsin mi?\n\nSilinince hiç girilmemiş gibi olur: Dokuma Takip, Dokuma Depo ve raporlardan düşer.\nSilme işlemi adınızla kayda geçer.',{evet:'🗑 Sil',tehlike:true}))return;
   const eski=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='…';}
   try{
@@ -1983,6 +2280,7 @@ async function gkGeriAl(btn,siparisId,kalemIdx,gid){
 
 /* ── Girişler sekmesi ────────────────────────────────────────────── */
 let _vgCache=null;
+let _vgKd=null,_vgKurBekliyor=false,_vgOkuBekliyor=false;   /* ham kaplar + kendiliğinden tazeleme bayrakları */
 
 /** Girişin nereden yapıldığı (liste satırında yazar). */
 function girisKaynakAdi(g){
@@ -1995,8 +2293,16 @@ function girisKaynakAdi(g){
 /** Dokuma girişlerini toplar — BÜTÜN kaynaklar (kullanıcı, 12.10.2026: "listelenirken hepsi listelenmeli"), en yeni üstte.
     Tabletten girilen kayıt (kaynak=DOKUMA_PANEL + gid) düzenlenir; diğerleri salt okunur satırdır. */
 async function veriGirisleriYukle(){
+  _vgKd=await vgKdOku();
+  _vgKurBekliyor=false;_vgOkuBekliyor=false;
+  _vgCache=await vgListeKur();
+  return _vgCache;
+}
+/** Açık siparişlerin dokuma kapları (sipariş → kap): listenin ham verisi. Kendiliğinden tazeleme yalnız değişen
+    siparişin kabını yeniler (tazeKaplariOku); liste bu haritadan yeniden kurulur, bütün kaplar yeniden okunmaz. */
+async function vgKdOku(){
   const ids=siparisler.map(s=>String(s.id));
-  const satirlar=[];
+  const kdMap=new Map();
   const CHUNK=100;
   for(let i=0;i<ids.length;i+=CHUNK){
     const{data,error}=await sb.from('siparis_akis')
@@ -2009,38 +2315,44 @@ async function veriGirisleriYukle(){
       if(!grup.has(sid))grup.set(sid,[]);
       grup.get(sid).push(r);
     });
-    grup.forEach((rows,sid)=>{
-      const kd=kdSatirlardanSec(rows);
-      const sip=siparisler.find(s=>String(s.id)===sid);
-      const kalemler=parseKalemler(sip||{});
-      Object.entries(kd?.urunler||{}).forEach(([key,u])=>{
-        const ki=parseInt(key,10);
-        if(!Number.isFinite(ki))return;
-        (u?.girisler||[]).forEach((g,gi)=>{
-          if(!g)return;
-          /* Tablet dışı kayıt (ana program / Excel / Tezgah Planlama) SALT OKUNUR listelenir: kimliği yok ya da
-             başka ekranın kaydı — düzeltme yeri masaüstündeki Dokuma Takip · Giriş Geçmişi. Miktarı sıfır satır
-             (depo sıfırlamasıyla boşaltılmış eski kayıt) listelenmez. */
-          const panelden=g.kaynak===KAYNAK&&!!g.gid;
-          if(!panelden&&!((parseFloat(g.metre||0)||0)>0||(parseFloat(g.kg||0)||0)>0||(parseInt(g.adet||0,10)||0)>0))return;
-          const gt=ortakTarihOku(g.tarih_iso||g.tarih);
-          const k=kalemler[ki]||{};
-          satirlar.push({
-            siparisId:sid,sno:sip?.sno||sid,firma:sip?.firma||sip?.musteri||'—',
-            kalemIdx:ki,
-            kumas:g.kumas||null,
-            etiket:g.kumas?('Kumaş '+g.kumas+' (ham)'):kalemEtiket(k,ki),
-            birimTip:g.kumas?'MT':ikinciBirimTip(k),
-            metre:parseFloat(g.metre||0)||0,kg:parseFloat(g.kg||0)||0,adet:parseInt(g.adet||0,10)||0,
-            tarih:g.tarih||(gt?gt.toLocaleString('tr-TR'):''),ts:gt?gt.getTime():0,
-            user:g.user||g.kullanici||'',gid:panelden?g.gid:('x-'+sid+'-'+ki+'-'+gi),
-            salt:!panelden,kaynakAd:girisKaynakAdi(g),
-            gecmis:Array.isArray(g.gecmis)?g.gecmis:[]
-          });
+    grup.forEach((rows,sid)=>kdMap.set(sid,kdSatirlardanSec(rows)));
+  }
+  return kdMap;
+}
+/** Haritadan liste satırları (en yeni 80). _vgCache'i çağıran atar: ekrandaki listeyle AYNI anda değişmeli
+    (Düzenle formu satırı _vgCache'te arar). */
+async function vgListeKur(){
+  const satirlar=[];
+  (_vgKd||new Map()).forEach((kd,sid)=>{
+    const sip=siparisler.find(s=>String(s.id)===sid);
+    const kalemler=parseKalemler(sip||{});
+    Object.entries(kd?.urunler||{}).forEach(([key,u])=>{
+      const ki=parseInt(key,10);
+      if(!Number.isFinite(ki))return;
+      (u?.girisler||[]).forEach((g,gi)=>{
+        if(!g)return;
+        /* Tablet dışı kayıt (ana program / Excel / Tezgah Planlama) SALT OKUNUR listelenir: kimliği yok ya da
+           başka ekranın kaydı — düzeltme yeri masaüstündeki Dokuma Takip · Giriş Geçmişi. Miktarı sıfır satır
+           (depo sıfırlamasıyla boşaltılmış eski kayıt) listelenmez. */
+        const panelden=g.kaynak===KAYNAK&&!!g.gid;
+        if(!panelden&&!((parseFloat(g.metre||0)||0)>0||(parseFloat(g.kg||0)||0)>0||(parseInt(g.adet||0,10)||0)>0))return;
+        const gt=ortakTarihOku(g.tarih_iso||g.tarih);
+        const k=kalemler[ki]||{};
+        satirlar.push({
+          siparisId:sid,sno:sip?.sno||sid,firma:sip?.firma||sip?.musteri||'—',
+          kalemIdx:ki,
+          kumas:g.kumas||null,
+          etiket:g.kumas?('Kumaş '+g.kumas+' (ham)'):kalemEtiket(k,ki),
+          birimTip:g.kumas?'MT':ikinciBirimTip(k),
+          metre:parseFloat(g.metre||0)||0,kg:parseFloat(g.kg||0)||0,adet:parseInt(g.adet||0,10)||0,
+          tarih:g.tarih||(gt?gt.toLocaleString('tr-TR'):''),ts:gt?gt.getTime():0,
+          user:g.user||g.kullanici||'',gid:panelden?g.gid:('x-'+sid+'-'+ki+'-'+gi),
+          salt:!panelden,kaynakAd:girisKaynakAdi(g),
+          gecmis:Array.isArray(g.gecmis)?g.gecmis:[]
         });
       });
     });
-  }
+  });
   satirlar.sort((a,b)=>b.ts-a.ts);
   /* Kumaş girişleri kumaşın ADIYLA: yalnız bu siparişlerin ürün ağacı okunur */
   const kumasSid=[...new Set(satirlar.slice(0,80).filter(r=>r.kumas).map(r=>String(r.siparisId)))];
@@ -2053,18 +2365,25 @@ async function veriGirisleriYukle(){
       if(kum)r.etiket=kum.ad+' (ham)';
     });
   }
-  _vgCache=satirlar.slice(0,80);
-  return _vgCache;
+  return satirlar.slice(0,80);
 }
 
 async function veriGirisleriRender(force){
   const host=document.getElementById('vg-liste-area');
   if(!host)return;
-  if(!_vgCache||force){
+  if(!_vgCache||force||_vgOkuBekliyor){
     host.innerHTML=`<div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>`;
     try{await veriGirisleriYukle();}
     catch(e){host.innerHTML=`<div class="empty"><div class="icon">⚠️</div>Yüklenemedi: ${esc(e.message||e)}</div>`;return;}
+  }else if(_vgKurBekliyor&&_vgKd){
+    /* sekme kapalıyken başka cihazdan top girildi: kaplar güncel, liste onlardan yeniden kurulur (ağ isteği yok) */
+    _vgCache=await vgListeKur();_vgKurBekliyor=false;
   }
+  vgListeCiz();
+}
+function vgListeCiz(){
+  const host=document.getElementById('vg-liste-area');
+  if(!host)return;
   const liste=_vgCache||[];
   if(!liste.length){
     host.innerHTML=`<div class="empty"><div class="icon">📭</div>Henüz dokuma girişi yok.</div>`;
@@ -2188,7 +2507,7 @@ async function vgSil(btn,gid){
   const r=vgSatirBul(gid);
   if(!r)return;
   if(r.salt){showToast('Bu kayıt tabletten girilmemiş — ana programdan düzeltilir',3200);return;}
-  if(!confirm(`Bu kayıt silinsin mi?\n\n${r.etiket}\n${girisMiktarOzeti(r)}\nGiren: ${r.user||'—'} · ${r.tarih||'—'}\n\n(Dokuma Takip ve Dokuma Depo listesinden de düşer.\nSilme işlemi adınızla kayda geçer.)`))return;
+  if(!await sayfaSor(`Bu kayıt silinsin mi?\n\n${r.etiket}\n${girisMiktarOzeti(r)}\nGiren: ${r.user||'—'} · ${r.tarih||'—'}\n\nSilinince hiç girilmemiş gibi olur: Dokuma Takip, Dokuma Depo ve raporlardan düşer.\nSilme işlemi adınızla kayda geçer.`,{evet:'🗑 Sil',tehlike:true}))return;
   const eskiTxt=btn.textContent;
   btn.disabled=true;btn.textContent='…';
   try{
@@ -2253,6 +2572,34 @@ async function manuelYenile(){
     showToast('✅ Güncellendi',1200);
   }catch(e){showToast('❌ Yenilenemedi: '+(e.message||e));}
   if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='🔄 Yenile';}
+}
+
+/* ── Sayfa içi soru (13.10.2026) ──────────────────────────────────────
+   Kilitli tablette tarayıcının confirm() penceresi açılmıyor ve "hayır" dönüyor: Girişler'de "🗑 Sil"e basınca
+   hiçbir şey olmuyordu (13.10 08:54 deneme topu için veritabanında silme izi yok; aynı kod tarayıcıda siliyor,
+   12.10'da 23 kayıt silinmiş). Sorular sayfanın İÇİNDE sorulur; bu dosyada confirm() KULLANILMAZ (bekçi denetler).
+   Döner: Promise<boolean>. ayar: { evet, hayir, tehlike } — tehlike: silme gibi geri dönüşü olmayan işlem. */
+let _soruKapat=null;
+function sayfaSor(metin,ayar){
+  ayar=ayar||{};
+  if(_soruKapat)_soruKapat(false);
+  return new Promise(coz=>{
+    if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();   /* klavye insin, soru görünsün */
+    const ov=document.createElement('div');
+    ov.id='sayfa-soru';
+    ov.style.cssText='position:fixed;inset:0;z-index:8000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px';
+    ov.innerHTML=`<div role="alertdialog" aria-modal="true" style="width:100%;max-width:440px;max-height:86vh;overflow:auto;background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.35)">
+      <div style="font-size:14px;line-height:1.55;color:var(--text);white-space:pre-line;word-break:break-word">${esc(metin)}</div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button type="button" data-cevap="0" style="flex:1;padding:14px 0;border:1px solid var(--border2);background:none;color:var(--text2);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">${esc(ayar.hayir||'Vazgeç')}</button>
+        <button type="button" data-cevap="1" ${ayar.tehlike?'':'class="gk-btn"'} style="flex:1;padding:14px 0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit${ayar.tehlike?';border:1px solid rgba(239,68,68,.55);background:rgba(239,68,68,.14);color:var(--red)':''}">${esc(ayar.evet||'Tamam')}</button>
+      </div>
+    </div>`;
+    const kapat=(v)=>{if(_soruKapat!==kapat)return;_soruKapat=null;ov.remove();coz(!!v);};
+    _soruKapat=kapat;
+    ov.addEventListener('click',e=>{const b=e.target.closest('button[data-cevap]');if(b)kapat(b.dataset.cevap==='1');});
+    document.body.appendChild(ov);
+  });
 }
 
 function showToast(m,d=1500){
@@ -2496,7 +2843,7 @@ async function tzGkKaydet(siparisId,kalemIdx){
 }
 
 async function tzGkGeriAl(btn,siparisId,kalemIdx,gid){
-  if(!confirm('Bu top kaydı silinsin mi?\n(Dokuma Takip ve Dokuma Depo listesinden de düşer)\n\nSilme işlemi adınızla kayda geçer.'))return;
+  if(!await sayfaSor('Bu top kaydı silinsin mi?\n\nSilinince hiç girilmemiş gibi olur: Dokuma Takip, Dokuma Depo ve raporlardan düşer.\nSilme işlemi adınızla kayda geçer.',{evet:'🗑 Sil',tehlike:true}))return;
   const rid=`${siparisId}-${kalemIdx}`;
   const satir=_tzAktifSatirlar.get(rid);
   const eski=btn?btn.textContent:'';
@@ -2609,10 +2956,14 @@ function closeTezgahModal(){_tzAcilisNo++;document.getElementById('tezgah-modal'
    Sevk edilen mal ana programın Kesim ekranında ve Konfeksiyon Panel'de "Kesim önünde bekleyen" olarak
    görünür (04 konfKesimOnuBekleyenler / panel kesimOnuHesapla): gelen − ilk sevkten sonra girilen kesim.
    Sevk edilenler: listenin altında gün gün; sevki yapan kişi ve yöneticiler düzeltir / siler (aşağıda "Sevk edilenler"). */
-const DD_BASLANGIC=new Date(2026,6,31);   // ana program DOKUMA_DEPO_LISTE_BASLANGIC_ISO = '2026-07-31'
-const DD_ETIKET='[DD_V2]';                // ana program DOKUMA_DEPO_SEVK_ETIKET
+/* Başlangıç günü (31.07.2026), defter etiketi ('[DD_V2]') ve sevkin pipeline adı ORTAK sabit — değer burada YAZILMAZ
+   (30-ortak-kurallar.js; ana program aynı fonksiyonlardan alır) */
+const DD_BASLANGIC=new Date(ortakDepoBaslangicMs());
+const DD_ETIKET=ortakDepoSevkEtiket();
+const DD_PIPELINE=ortakKesimOnuPipeline();
 const DD_LIMIT_ADIM=60;
 let _ddCache=null,_ddCacheTs=0,_ddArama='',_ddYukleniyor=null,_ddLimit=DD_LIMIT_ADIM,_ddAramaZaman=null;
+let _ddKd=null,_ddDefter=null,_ddKurBekliyor=false,_ddOkuBekliyor=false;   /* ham veri + kendiliğinden tazeleme bayrakları */
 
 function ddSevkYetkili(){return!!currentUser;}
 /** Ana programdaki dtDokumaDepoTarihParse ile aynı: "12.10.2026 09:30:00" ya da ISO. */
@@ -2633,6 +2984,15 @@ async function ddDefterOku(filtre){
   return ortakDepoDefterTopla(data);   /* ORTAK kural — ana program aynı fonksiyonu çağırır */
 }
 async function ddYukle(){
+  const h=await ddHamOku();
+  _ddKd=h.kd;_ddDefter=h.defter;
+  _ddKurBekliyor=false;_ddOkuBekliyor=false;
+  _ddCache=await ddListeKur();
+  _ddCacheTs=Date.now();
+}
+/** Deponun ham verisi: bütün dokuma kapları (sipariş → kap) + sevk defteri. Kendiliğinden tazeleme yalnız değişen
+    siparişin kabını / defteri yeniler (tazeKaplariOku, tazeIzleTick); liste ddListeKur ile yeniden kurulur. */
+async function ddHamOku(){
   const[kdRes,defter]=await Promise.all([
     tumSatirlariCek(()=>sb.from('siparis_akis').select('id,siparis_id,kalem_ad,notlar,created_at')
       .eq('islem',KD_TIP).order('created_at',{ascending:false}).order('id',{ascending:false})),
@@ -2641,9 +3001,16 @@ async function ddYukle(){
   if(kdRes.error)throw kdRes.error;
   const grup=new Map();
   (kdRes.data||[]).forEach(r=>{const k=String(r.siparis_id||'');if(!k)return;if(!grup.has(k))grup.set(k,[]);grup.get(k).push(r);});
+  const kd=new Map();
+  grup.forEach((rows,sid)=>kd.set(sid,kdSatirlardanSec(rows)));
+  return{kd,defter};
+}
+/** Ham veriden depo listesi. _ddCache'i çağıran atar: ekrandaki listeyle AYNI anda değişmeli (sevk formu satırı
+    _ddCache'te arar). Önbellek yaşı (_ddCacheTs) yalnız tam okumada yenilenir. */
+async function ddListeKur(){
+  const defter=_ddDefter||new Map();
   const ham=[];
-  grup.forEach((rows,sid)=>{
-    const kd=kdSatirlardanSec(rows);
+  (_ddKd||new Map()).forEach((kd,sid)=>{
     Object.entries(kd?.urunler||{}).forEach(([key,u])=>{
       const ki=parseInt(key,10);
       if(!Number.isFinite(ki))return;
@@ -2656,7 +3023,7 @@ async function ddYukle(){
   const parca=[];for(let i=0;i<sids.length;i+=60)parca.push(sids.slice(i,i+60));
   await Promise.all(parca.map(p=>getKdBatch(p,'KD_URUN_AGACI')));
   const sipMap=new Map((_tumSiparisler.length?_tumSiparisler:siparisler).map(x=>[String(x.id),x]));
-  _ddCache=ham.map(h=>{
+  return ham.map(h=>{
     const sip=sipMap.get(h.sid)||{id:h.sid,sno:'',firma:'',cins:'[]'};
     const kalem=parseKalemler(sip)[h.ki]||{};
     const kumas=tzKalemKumasi(sip,h.ki);
@@ -2664,7 +3031,6 @@ async function ddYukle(){
       etiket:kumas?kumas.ad+' · HAM':kalemEtiket(kalem,h.ki),
       tip:kumas?'MT':ikinciBirimTip(kalem),kapali:siparisKapaliMi(sip.durum)};
   });
-  _ddCacheTs=Date.now();
 }
 function ddMiktarMetin(r){
   const p=[fmt(r.mt,1)+' m'];
@@ -2676,7 +3042,7 @@ function ddSatirBul(sid,ki){return(_ddCache||[]).find(r=>String(r.sid)===String(
 async function ddRender(force){
   const host=document.getElementById('dd-liste-area');
   if(!host)return;
-  if(force||!_ddCache||Date.now()-_ddCacheTs>60000){
+  if(force||!_ddCache||_ddOkuBekliyor||Date.now()-_ddCacheTs>60000){
     host.innerHTML='<div class="loading"><div class="spinner"></div><div>Depo okunuyor…</div></div>';
     try{await(_ddYukleniyor||(_ddYukleniyor=ddYukle().finally(()=>{_ddYukleniyor=null;})));}
     catch(e){
@@ -2686,6 +3052,9 @@ async function ddRender(force){
       const oz=document.getElementById('dd-ozet');if(oz)oz.innerHTML='';
       return;
     }
+  }else if(_ddKurBekliyor&&_ddKd){
+    /* sekme kapalıyken başka cihazdan top girildi: kaplar güncel, liste onlardan yeniden kurulur */
+    _ddCache=await ddListeKur();_ddKurBekliyor=false;
   }
   ddListeCiz();
   ddSevklerRender();
@@ -2739,8 +3108,8 @@ function ddSevkAc(sid,ki){
   el.innerHTML=`<div class="dd-form">
     <div class="dd-form-bas">→ <strong>Konfeksiyon</strong>'a sevk · depoda ${ddMiktarMetin(r)}</div>
     <div class="gk-form">
-      <input id="dd-m-${rid}" class="gk-inp" type="text" enterkeyhint="done" placeholder="metre (m)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-      ${r.tip==='MT'?'':`<input id="dd-i-${rid}" class="gk-inp" type="text" enterkeyhint="done" placeholder="${ph}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">`}
+      <input id="dd-m-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done" placeholder="metre (m)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      ${r.tip==='MT'?'':`<input id="dd-i-${rid}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done" placeholder="${ph}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">`}
       <button type="button" class="gk-btn" id="dd-btn-${rid}" onclick="ddSevkKaydet('${esc(String(sid))}',${ki})">Sevk et</button>
     </div>
     <div id="dd-durum-${rid}"></div>
@@ -2847,7 +3216,7 @@ async function ddSevkKaydet(sid,ki,onayli){
         renk,firma:sip.firma||'',kalem_idx:ki,kalem_renk:k0.renk||renk||'',kalem_ebat:k0.ebat||k0.olcu||'',
         kalem_key:[N(k0.ad||k0.kod),N(k0.renk),N(k0.ebat||k0.olcu)].join('|'),
         durum:'KESIM_BEKLIYOR',kesilen_kg:0,kesilen_mt:0,kesilen_adet:0,hedef:'KONFEKSIYON',konf_panel:true,
-        pipeline:'DOKUMA_DEPO_SEVK',kaynak:'DOKUMA_PANEL',note:'Dokuma Depo → Konfeksiyon sevk · '+miktar
+        pipeline:DD_PIPELINE,kaynak:'DOKUMA_PANEL',note:'Dokuma Depo → Konfeksiyon sevk · '+miktar
       })
     }]);
     if(akErr){
@@ -2910,13 +3279,13 @@ function ddSevkGunSec(v){
 async function ddSevklerOku(){
   const bas=ddSevkGunu(),bit=new Date(bas);bit.setDate(bit.getDate()+1);
   const{data,error}=await tumSatirlariCek(()=>sb.from('siparis_akis').select('id,created_at,siparis_id,notlar')
-    .eq('islem','KUMAS_GELIS').like('notlar','%DOKUMA_DEPO_SEVK%').gte('created_at',bas.toISOString()).lt('created_at',bit.toISOString())
+    .eq('islem','KUMAS_GELIS').like('notlar','%'+DD_PIPELINE+'%').gte('created_at',bas.toISOString()).lt('created_at',bit.toISOString())
     .order('id',{ascending:false}));
   if(error)throw error;
   const l=[];
   (data||[]).forEach(r=>{
     let j={};try{j=JSON.parse(r.notlar||'{}')||{};}catch(e){}
-    if(j.pipeline!=='DOKUMA_DEPO_SEVK')return;
+    if(j.pipeline!==DD_PIPELINE)return;
     l.push({id:r.id,sid:String(r.siparis_id),ki:parseInt(j.kalem_idx,10),t:Date.parse(j.ts||r.created_at||'')||0,j});
   });
   return l;
@@ -2943,7 +3312,7 @@ function ddSevkDegistirebilirMi(s){
 }
 /** Sevk satırının notundan engel: dokunulamıyorsa neden, yoksa ''. */
 function ddSevkEngeli(j){
-  if(j?.pipeline!=='DOKUMA_DEPO_SEVK')return'Bu kayıt bir Konfeksiyon sevki değil';
+  if(j?.pipeline!==DD_PIPELINE)return'Bu kayıt bir Konfeksiyon sevki değil';
   if(j.kesim_onu_kapali)return'Konfeksiyon bu malın kesimini bitirmiş — değiştirilemez';
   if(['kesilen_adet','yikama_sevk_adet','yikama_gelen_adet','kalite_gecen_adet','sevk_edilen_adet'].some(k=>(parseInt(j[k],10)||0)>0))return'Bu sevke Konfeksiyon\'da işlem girilmiş — değiştirilemez';
   if(!ddSevkDefterIdleri(j).length)return'Bu sevkin depo satırı bağı yok — ana programdan düzeltilir';
@@ -2966,12 +3335,12 @@ function ddSevkSatirHtml(s){
       ${tekDefter?`<div style="display:grid;grid-template-columns:${tip==='MT'?'1fr':'1fr 1fr'};gap:6px">
         <div>
           <label class="field-label" for="dd-sm-${id}">Metre (m)</label>
-          <input id="dd-sm-${id}" class="gk-inp" type="text" enterkeyhint="done" autocomplete="off" autocorrect="off"
+          <input id="dd-sm-${id}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" autocorrect="off"
             spellcheck="false" placeholder="metre (m)" value="${esc(sayiYaz(j.mt))}">
         </div>
         ${tip==='MT'?'':`<div>
           <label class="field-label" for="dd-si-${id}">${ph}</label>
-          <input id="dd-si-${id}" class="gk-inp" type="text" enterkeyhint="done" autocomplete="off" autocorrect="off"
+          <input id="dd-si-${id}" class="gk-inp" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" autocorrect="off"
             spellcheck="false" placeholder="${ph}" value="${esc(sayiYaz(tip==='KG'?j.kg:j.adet))}">
         </div>`}
       </div>`:`<div style="font-size:10px;color:var(--text3);line-height:1.5">Bu sevk birden çok depo satırına yazılmış — miktarı ana programdan düzeltilir; buradan yalnız silinebilir.</div>`}
@@ -3057,12 +3426,12 @@ async function ddSevkSonrasiKesim(sid,ki,t){
   const sip=(_tumSiparisler.length?_tumSiparisler:siparisler).find(x=>String(x.id)===sid)||{id:sid,cins:'[]'};
   await getKdBatch([sid],'KD_URUN_AGACI');
   const kumas=tzKalemKumasi(sip,ki);
-  const kalemler=kumas?parseKalemler(sip).map((_,i)=>i).filter(i=>tzKalemKumasi(sip,i)?.id===kumas.id):[ki];
+  const kalemler=kumas?kumas.kalemler:[ki];
   const{data,error}=await sb.from('konf_kesim_yikama').select('id,kalem_idx,kesilen_adet,kesim_ts,created_at,kaynak,aktif')
     .eq('siparis_id',coerceSiparisIdForDb(sid)).in('kalem_idx',kalemler);
   if(error)throw error;
-  return(data||[]).filter(r=>r.aktif!==false&&!['DEVIR','KESIMSIZ_YIKAMA'].includes(String(r.kaynak||'').toUpperCase())
-    &&(Date.parse(r.kesim_ts||r.created_at||'')||0)>=t).reduce((a,r)=>a+(parseInt(r.kesilen_adet,10)||0),0);
+  /* Hangi satır kesim sayılır: ORTAK kural (ortakKesimOnuKesimOku — iptal, Devir, kesimsiz yıkama hariç) */
+  return(data||[]).map(r=>ortakKesimOnuKesimOku({...r,siparis_id:sid})).filter(k=>k&&k.t>=t).reduce((a,k)=>a+k.ad,0);
 }
 /** Kişi izi (ana programın depo değişiklik geçmişi + Günlük İşlemler bunu okur). Hata nesnesi ya da null döner. */
 async function ddSevkIzYaz(satirlar){
@@ -3169,7 +3538,7 @@ async function ddSevkGeriAl(btn,akisId){
   if(!ddSevkDegistirebilirMi(s)){showToast('Bu sevki yalnız yapan kişi ya da yönetici silebilir',3600);return;}
   const engel=ddSevkEngeli(s.j);
   if(engel){showToast(engel,4000);return;}
-  if(!confirm(`Bu sevk silinsin mi?\n\n${s.j.kumas_cinsi||s.j.stok_kodu||'Kumaş'}\n${ddSevkMiktar(s.j)}\nSevk eden: ${s.j.user||'—'} · ${new Date(s.t).toLocaleString('tr-TR')}\n\n(Mal depoya döner, Konfeksiyon'da kesim önünden düşer.\nSilme işlemi adınızla kayda geçer.)`))return;
+  if(!await sayfaSor(`Bu sevk silinsin mi?\n\n${s.j.kumas_cinsi||s.j.stok_kodu||'Kumaş'}\n${ddSevkMiktar(s.j)}\nSevk eden: ${s.j.user||'—'} · ${new Date(s.t).toLocaleString('tr-TR')}\n\nMal depoya döner, Konfeksiyon'da kesim önünden düşer.\nSilme işlemi adınızla kayda geçer.`,{evet:'🗑 Sil',tehlike:true}))return;
   const eskiTxt=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='…';}
   let degisti=false;
@@ -3270,6 +3639,7 @@ function karsilamaGoster(){
 function karsilamaKapat(){
   const el=document.getElementById('karsilama');if(!el)return;
   el.style.display='none';clearInterval(_ksSaat);_ksSaat=null;
+  setTimeout(tazeIzleTick,300);   /* karşılama açıkken bakılmadı: şimdi bak (rakamlar eski kalmasın) */
   if(!currentUser){setTimeout(()=>document.getElementById('l-user')?.focus(),80);return;}
   const a=document.getElementById('ua-arama');
   if(aktifTabId()==='giris'&&a&&!a.value)setTimeout(()=>a.focus(),80);
@@ -3287,8 +3657,16 @@ window.kioskUyandi=karsilamaGoster;
    surum.json eski kaldı, html'de sürüm gömülü değildi) → tablet yeni sayfayı hiç almadı, "güncelledim ama
    olmuyor". Artık sayfa dosyasının sunucudaki tarihi de sorulur (gövdesiz küçük istek): açık sayfanınkinden
    (document.lastModified) yeniyse yenilenir — surum.json unutulsa, html paketlenmeden yüklense de çalışır.
-   Yerelde (localhost) bakılmaz. */
-const PANEL_SURUM='20261012-a0e32cda';
+   Yerelde (localhost) bakılmaz.
+   İKİ KLASÖR AYNI (13.10.2026, kullanıcı kararı): sürüm artık KAYNAK html'de durur (scripts/sync-panel-surum.js
+   damgalar: PANEL_SURUM = gün + içerik özeti, PANEL_ZAMAN = damga saati; surum.json kaynak klasörde de bulunur,
+   check bayatı reddeder) — mobil/dokuma-panel ya da _uretilen/dokuma-panel-github, hangisinden yüklenirse
+   yüklensin aynı sayfa. Bu iki satır ELLE DEĞİŞTİRİLMEZ (npm run sync:mobil yazar).
+   surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
+   unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
+   denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
+const PANEL_SURUM='20261013-2266903c';
+const PANEL_ZAMAN=1791871571;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
@@ -3297,12 +3675,10 @@ function panelSurumYazisi(){
 }
 /** Yayında daha yeni bir sayfa varsa adı, yoksa ''. */
 async function yeniSurumHedefi(){
-  if(!PANEL_SURUM.startsWith('__')){
-    try{
-      const r=await fetch('surum.json?v='+Date.now(),{cache:'no-store'});
-      if(r.ok){const v=String((await r.json())?.surum||'');if(v&&v!==PANEL_SURUM)return v;}
-    }catch(e){}
-  }
+  try{
+    const r=await fetch('surum.json?v='+Date.now(),{cache:'no-store'});
+    if(r.ok){const j=await r.json(),v=String(j?.surum||'');if(v&&v!==PANEL_SURUM&&(Number(j?.zaman)||0)>PANEL_ZAMAN)return v;}
+  }catch(e){}
   try{
     const r=await fetch(location.pathname+'?v='+Date.now(),{method:'HEAD',cache:'no-store'});
     const sunucu=Date.parse(r.headers.get('last-modified')||''),acik=Date.parse(document.lastModified||'');
@@ -3310,17 +3686,30 @@ async function yeniSurumHedefi(){
   }catch(e){}
   return'';
 }
+/** Bu hedef için şimdi denenebilir mi (denenecekse deftere yazar). İlk deneme hemen; sonrakiler 10 dk, 20, 40 … 6 saat. */
+function surumDenemeIzni(hedef,simdi){
+  const anahtar='panel_surum_deneme_'+hedef;
+  const[son,say]=String(localStorage.getItem(anahtar)||'').split('|').map(x=>parseInt(x,10)||0);
+  if(son&&simdi-son<Math.min(10*60000*Math.pow(2,Math.max(0,(say||0)-1)),6*3600000))return false;
+  /* eski hedeflerin defteri birikmesin (7 gün) */
+  for(let i=localStorage.length-1;i>=0;i--){
+    const k=localStorage.key(i)||'';
+    if(k.startsWith('panel_surum_deneme_')&&k!==anahtar&&simdi-(parseInt(localStorage.getItem(k),10)||0)>7*86400000)localStorage.removeItem(k);
+  }
+  localStorage.setItem(anahtar,simdi+'|'+((say||0)+1));
+  return true;
+}
+function surumKontrolKapali(){return location.protocol==='file:'||/^(localhost|127\.0\.0\.1)$/.test(location.hostname)||navigator.onLine===false;}
+/** Her deneme ayrı adres (&t=) — tabletin önbelleği aynı adresi 10 dk eski sayfayla cevaplamasın. */
+function panelYenidenAc(hedef){location.replace(location.pathname+'?s='+encodeURIComponent(hedef)+'&t='+Date.now());}
 async function yeniSurumKontrol(){
-  if(location.protocol==='file:'||/^(localhost|127\.0\.0\.1)$/.test(location.hostname)||navigator.onLine===false)return;
+  if(surumKontrolKapali())return;
   try{
     const hedef=await yeniSurumHedefi();
     if(!hedef)return;
     if(panelMesgulMu()||_bekleyenGonderiliyor)return;
-    const anahtar='panel_surum_deneme_'+hedef;
-    const son=parseInt(localStorage.getItem(anahtar)||'0',10)||0;
-    if(Date.now()-son<10*60000)return;
-    localStorage.setItem(anahtar,String(Date.now()));
-    location.replace(location.pathname+'?s='+encodeURIComponent(hedef));
+    if(!surumDenemeIzni(hedef,Date.now()))return;
+    panelYenidenAc(hedef);
   }catch(e){}
 }
 setInterval(yeniSurumKontrol,10*60000);
