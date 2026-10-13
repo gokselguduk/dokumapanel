@@ -125,20 +125,35 @@ ne zaman, neyi sildi" izi ayrı satırda kalır (ana programda Günlük
 
 YENİ SÜRÜM KİLİTLİ TABLETE NASIL GELİR
 -------------------------------------
-YÜKLEME: node scripts/paket-dokuma-github.js → _uretilen/dokuma-panel-github/
-klasörünün İÇİNDEKİ BÜTÜN dosyalar dokumapanel deposuna. mobil/dokuma-panel/
-klasöründen YÜKLENMEZ (12.10'da iki kez böyle yüklendi, tablet eski sayfada
-kaldı). 12.10 akşamından itibaren tablet, surum.json unutulsa bile sayfa
-dosyasının tarihinden de yeni sürümü anlar. Açık sayfanın sürümü karşılama
-sayfasının altında yazar ("Sürüm: …") — tablet güncellendi mi oradan bakılır.
+YÜKLEME (13.10.2026, "iki klasör aynı"): sürüm artık KAYNAK html'in içinde
+damgalıdır ve surum.json bu klasörde de durur (npm run sync:mobil yazar).
+_uretilen/dokuma-panel-github/ (node scripts/paket-dokuma-github.js) ile
+mobil/dokuma-panel/ AYNI dosyaları taşır — hangisinden yüklenirse yüklensin
+olur. Klasörün İÇİNDEKİ BÜTÜN dosyalar dokumapanel deposuna (html +
+surum.json birlikte). 12.10'da dosyalar iki kez sürümsüz kaynak klasörden
+yüklenmiş, tablet eski sayfada kalmıştı — bu yüzden.
 
-Kilitli tablet sayfayı kendiliğinden yeniden açmaz. GitHub paketi
-(node scripts/paket-dokuma-github.js) içerikten bir sürüm üretir, html'e
-gömer ve surum.json'a yazar — İKİSİ BİRLİKTE yüklenmeli. Tablet ekran
-açılınca ve 10 dk'da bir surum.json'a bakar; farklıysa ve kimse yazmıyorsa
-sayfayı yeniler (bekleyen toplar ve oturum kaybolmaz).
-Bu özellik gelmeden önceki sürümde tek yol: Ses kısma + Güç tuşu 10 sn
-(Samsung zorla yeniden başlatma; kilitliyken de çalışır).
+Kilitli tablet sayfayı kendiliğinden yeniden açmaz; yeni sürümü kendi arar
+(ekran açılınca ve 10 dk'da bir; kimse yazmıyorken):
+  1) sayfa dosyasının sunucudaki tarihi açık sayfanınkinden yeniyse
+     (GitHub her yüklemede bütün dosyaların tarihini yeniler — tek dosya
+     yüklense de yakalar),
+  2) surum.json bu sayfadan YENİ damgalıysa (eski surum.json yok sayılır).
+Sayfa yenilenir; bekleyen toplar ve oturum kaybolmaz. Aynı hedef için
+denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme
+döngüsü olmaz. Açık sayfanın sürümü karşılama sayfasının altında yazar
+("Sürüm: …") — tablet güncellendi mi oradan bakılır.
+Yazı görünmüyorsa tablet bu özellikten önceki sayfadadır: Ses kısma + Güç
+tuşu 10 sn (Samsung zorla yeniden başlatma; kilitliyken de çalışır).
+
+RAKAMLAR KENDİLİĞİNDEN TAZELENİR (13.10.2026)
+---------------------------------------------
+Başka cihazdan (ana program, diğer tablet) girilen top bu tablette 🔄 Yenile'ye
+basmadan görünür. 10 sn'de bir küçük bir bakış (61 bayt); değişiklik varsa
+yalnız değişen sipariş okunur (~2 KB). Kartlardaki rakamlar yerinde değişir
+(kutular, yazılan sayı, liste oynamaz — yazarken de). Girişler / Depo /
+Siparişler listeleri yalnız kimse yazmıyorken (30 sn dokunulmamış, açık
+form yok) çizilir. Ekran kapalı / karşılama açıkken bakılmaz.
 
 SİPARİŞ LİSTESİ TAZELEME
 ------------------------

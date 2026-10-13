@@ -580,15 +580,25 @@ function ortakTarihOku(val) {
 /** Kalemin depoya giren dokuması: { mt, kg, ad, son } | null (son = en yeni girişin tarihi).
  *  Excel "genel durum" kalemi (bir satırı bile GENEL_DURUM_EXCEL ise): bütün giriş satırları;
  *  diğer kalemler: yalnız başlangıç gününden (baslangicMs) sonraki girişler.
- *  `depo_kalan_sifir` işaretli kalem depoda sayılmaz. Toplam alanları (toplam_*) burada KULLANILMAZ. */
+ *  `depo_kalan_sifir` işaretli kalem (Dokuma Depo sıfırlaması): sıfırlama ANINA (`depo_kalan_sifir_at`) kadarki
+ *  girişler sayılmaz, SONRAKİ girişler sayılır — sıfırlanan kaleme sonradan girilen kalite depoda görünür
+ *  (13.10.2026: işaret kalemi kalıcı gizliyordu, 12.10 sıfırlamasından sonra girilen 24 kalem depoda yoktu).
+ *  Sıfırlama anı okunamıyorsa kalem sayılmaz. Toplam alanları (toplam_*) burada KULLANILMAZ. */
 function ortakDepoKalemGiris(u, baslangicMs) {
-    if (!u || u.depo_kalan_sifir) return null;
+    if (!u) return null;
+    let sifirMs = null;
+    if (u.depo_kalan_sifir) {
+        const sd = ortakTarihOku(u.depo_kalan_sifir_at);
+        if (!sd) return null;
+        sifirMs = sd.getTime();
+    }
     const girisler = Array.isArray(u.girisler) ? u.girisler : [];
     const genel = girisler.some((g) => g && g.kaynak === 'GENEL_DURUM_EXCEL');
     let mt = 0, kg = 0, ad = 0, son = null;
     girisler.forEach((g) => {
         if (!g) return;
         const d = ortakTarihOku(g.tarih_iso || g.tarih);
+        if (sifirMs != null && !(d && d.getTime() > sifirMs)) return;
         if (!genel && !(d && d.getTime() >= baslangicMs)) return;
         mt += parseFloat(g.metre || 0) || 0;
         kg += parseFloat(g.kg || 0) || 0;
@@ -1207,12 +1217,12 @@ async function tazeKaplariOku(){
   ids.forEach(id=>{
     const kd=kdSatirlardanSec(grup.get(id)||[]);
     kdCache[on+id]=kd;kdCacheTs[on+id]=now;
-    _tazeOku.delete(id);
     if(grup.has(id)&&!dokunanIds.has(id)){dokunanIds.add(id);_tazeSipCiz=true;}
     if(hepsi)return;
     if(_vgKd&&siparisler.some(s=>String(s.id)===id)){_vgKd.set(id,kd);_vgKurBekliyor=true;}
     if(_ddKd){_ddKd.set(id,kd);_ddKurBekliyor=true;}
   });
+  _tazeOku=new Set([..._tazeOku].filter(id=>!okunan.has(id)));   /* okunanlar bekleyenlerden çıkar */
   if(hepsi)_tazeOkuHepsi=false;
   /* rakamlar: yalnız sayaç hücreleri */
   _uaSonSatirlar.forEach(r=>{if(okunan.has(String(r.siparisId)))gkKartTazele(r.siparisId,r.kalemIdx);});
@@ -2945,7 +2955,7 @@ function closeTezgahModal(){_tzAcilisNo++;document.getElementById('tezgah-modal'
 /* ── Kalite depo (12.10.2026) ────────────────────────────────────────
    Kaliteden geçen, henüz sevk edilmemiş mal. Ana programın Dokuma Depo'suyla AYNI kural (04-live-sync
    dtDokumaDepoKdTopluYukle + dokumaDepoSevkDefteriOku), kalem başına:
-     girişler = 31.07 sonrası dokuma girişleri (Excel genel durum kalemi: hepsi; depo_kalan_sifir: hiç)
+     girişler = 31.07 sonrası dokuma girişleri (Excel genel durum kalemi: hepsi; depo_kalan_sifir: yalnız sıfırlamadan SONRAKİ girişler)
      kalan    = girişler − sevk defteri (kumas_stok, notlarda [DD_V2], siparis_id + kalem_idx)
    Son girişi 31.07'den eski kalem sayılmaz; kapalı siparişler dahil (ana program da sayar).
    Sevk: yalnız Konfeksiyon'a; tablete giren herkes yapar (kullanıcı kararı 12.10.2026 — tablete girmek
@@ -3665,8 +3675,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261013-2266903c';
-const PANEL_ZAMAN=1791871571;
+const PANEL_SURUM='20261013-e9b95e20';
+const PANEL_ZAMAN=1791882851;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
