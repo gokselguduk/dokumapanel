@@ -606,21 +606,56 @@ function ortakDepoKalemGiris(u, baslangicMs) {
         ad += parseInt(g.adet || 0, 10) || 0;
         if (d && (!son || d > son)) son = d;
     });
-    return { mt, kg, ad, son };
+    return { mt, kg, ad, son, dus: ortakDepoDuzeltToplam(u) };
 }
 
-/** Depoda kalan = giren − sevk defteri: { mt, kg, ad, son } | null.
+/** ADMİN DEPO DÜZELTMESİ (14.10.2026, kullanıcı: "dokuma depodaki malları girilen sayıları hiç değiştirmeden
+ *  kaldırabilmek ya da sayıları revize ederek"): kalemin `depo_duzelt` listesindeki geri alınmamış (`iptal` yok)
+ *  kayıtların toplamı { mt, kg, ad } — artı depodan düşer, eksi depoya geri ekler. Dokuma girişleri (dokunan), sevk
+ *  defteri, sipariş sayaçları, fiş ve raporlar DEĞİŞMEZ; yalnız Dokuma Depo kalanı (ortakDepoKalan sevkten SONRA düşer). */
+function ortakDepoDuzeltToplam(u) {
+    let mt = 0, kg = 0, ad = 0;
+    (Array.isArray(u && u.depo_duzelt) ? u.depo_duzelt : []).forEach((d) => {
+        if (!d || d.iptal) return;
+        mt += parseFloat(d.mt) || 0;
+        kg += parseFloat(d.kg) || 0;
+        ad += parseInt(d.ad, 10) || 0;
+    });
+    return { mt: Math.round(mt * 1000) / 1000, kg: Math.round(kg * 1000) / 1000, ad };
+}
+
+/** Depoda kalan = giren − sevk defteri − admin düzeltmesi: { mt, kg, ad, son } | null.
  *  Son girişi başlangıç gününden eski kalem ve kalanı olmayan kalem depoda YOKTUR (null). */
 function ortakDepoKalan(giris, sevk, baslangicMs) {
     if (!giris || !giris.son || giris.son.getTime() < baslangicMs) return null;
     let mt = giris.mt, kg = giris.kg, ad = giris.ad;
     if (sevk) {
         mt = Math.max(0, mt - sevk.mt); kg = Math.max(0, kg - sevk.kg); ad = Math.max(0, ad - sevk.ad);
-        if (mt < 0.001) mt = 0;
-        if (kg < 0.001) kg = 0;
     }
+    const dus = giris.dus;
+    if (dus) {
+        mt = Math.round(Math.max(0, mt - dus.mt) * 1000) / 1000; kg = Math.round(Math.max(0, kg - dus.kg) * 1000) / 1000;
+        ad = Math.max(0, ad - dus.ad);
+    }
+    if (mt < 0.001) mt = 0;
+    if (kg < 0.001) kg = 0;
     if (mt <= 0 && kg <= 0 && ad <= 0) return null;
     return { mt, kg, ad, son: giris.son };
+}
+
+/** Kalanı `yeni`ye ({ mt, kg, ad }) getiren düzeltme kaydının miktarı: { dogal, simdi, dus } | null.
+ *  dogal = düzeltmesiz kalan (giren − sevk); yeni dogal'ı AŞAMAZ (dokunandan fazla mal depoda gösterilemez) → null.
+ *  dus artıysa depodan düşer, eksiyse önceki düzeltmenin bir kısmını geri ekler; kayıt yazılınca kalan tam `yeni` olur. */
+function ortakDepoDuzeltHesapla(giris, sevk, baslangicMs, yeni) {
+    const sifir = { mt: 0, kg: 0, ad: 0 };
+    const dogal = (giris && ortakDepoKalan({ mt: giris.mt, kg: giris.kg, ad: giris.ad, son: giris.son, dus: null }, sevk, baslangicMs)) || sifir;
+    const simdi = (giris && ortakDepoKalan(giris, sevk, baslangicMs)) || sifir;
+    const d = (giris && giris.dus) || sifir;
+    const y = { mt: parseFloat(yeni && yeni.mt) || 0, kg: parseFloat(yeni && yeni.kg) || 0, ad: parseInt(yeni && yeni.ad, 10) || 0 };
+    if (y.mt < 0 || y.kg < 0 || y.ad < 0) return null;
+    if (y.mt > dogal.mt + 0.0005 || y.kg > dogal.kg + 0.0005 || y.ad > dogal.ad) return null;
+    const y3 = (v) => Math.round(v * 1000) / 1000;
+    return { dogal, simdi, dus: { mt: y3(dogal.mt - d.mt - y.mt), kg: y3(dogal.kg - d.kg - y.kg), ad: dogal.ad - d.ad - y.ad } };
 }
 
 /** Sevk defteri satırlarından (kumas_stok, notlarda [DD_V2]; siparis_id + kalem_idx) kalem başına sevk edilen:
@@ -874,6 +909,7 @@ function initSB(){
   const c=window.__ERP_SUPABASE;
   if(!c||!c.url||!c.anonKey){showErr('erp-config.js yapılandırılmamış.');return false;}
   sb=supabase.createClient(c.url.trim(),c.anonKey.trim());
+  anlikYazmaIzle(sb);   /* bu tabletin yazmaları öbür programlara haber verir (anlık haber) */
   return true;
 }
 
@@ -1064,6 +1100,8 @@ async function startApp(){
 
 /* ── Sipariş listesi ─────────────────────────────────────────────── */
 /** sessiz: arka plan tazelemesi — hata olursa liste ekranı bozulmaz, eski veri kalır. */
+/* Sipariş listesinin kolonları — tam okuma (loadSiparisler) ve anlık haberle gelen değişenler (anlikSiparisYenile) aynı listeyi kullanır */
+const SIP_KOLON='id,created_at,sno,firma,starih,ttarih,notlar,durum,cins,miktar,musteri,uretim_yeri,updated_at';
 async function loadSiparisler(sessiz){
   try{
     /* Masaüstü Dokuma Takip ile aynı kapsam: TAMAMLANDI dışındaki tüm siparişler.
@@ -1074,7 +1112,7 @@ async function loadSiparisler(sessiz){
        1000'in altında yine tek istek — ek yük yok. */
     const[sipRes,akisRes]=await Promise.all([
       tumSatirlariCek(()=>sb.from('siparisler')
-        .select('id,created_at,sno,firma,starih,ttarih,notlar,durum,cins,miktar,musteri,uretim_yeri,updated_at')
+        .select(SIP_KOLON)
         .order('created_at',{ascending:false}).order('id',{ascending:false})),
       tumSatirlariCek(()=>sb.from('siparis_akis').select('siparis_id').eq('islem',KD_TIP).order('id',{ascending:true}))
     ]);
@@ -1261,6 +1299,112 @@ async function tazeListeleriCiz(){
 }
 setInterval(tazeIzleTick,TAZE_MS);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(tazeIzleTick,600);});
+
+/* ── Anlık haber (13.10.2026) — "değişti" kanalı ─────────────────────
+   Kullanıcı: "hangi programdan veri girilirse girilsin diğer programlarda hızlı bir şekilde işlensin … yenileme çağı
+   bitsin, herkes her şeyi anlık görsün". Bu tablet bir tabloya yazınca (yazma sunucuda hatasız bitince) ortak Realtime
+   kanalına küçük bir haber bırakır; ana program ve öbür tablet o tabloyu hemen okur. Haber gelince bu tablet de
+   10 sn'lik turu beklemeden HEMEN bakar (tazeIzleTick — kurallar aynı: rakamlar yerinde, listeler boştayken).
+   Haber veritabanına yazılmaz, yayın ayarı istemez (ölçülen gidiş-dönüş 70 ms). Biçim ana programla AYNI
+   (src/stok/js/32-anlik.js): olay 'd', {k:gönderen, p:platform, t:{tablo:[silinen id'ler]}} — değişirse dördü birlikte.
+   Kanal koparsa / haber kaçarsa 10 sn'lik tur zaten yakalar. Sürekli çalışan yeni bir veritabanı yoklaması YOK. */
+const ANLIK_KANAL='erp-degisti';
+const ANLIK_TABLOLAR=['siparisler','kumas_stok','kumas_kutuphanesi','iplik_stok','tezgahlar','siparis_akis','konf_kesim_yikama','dokuma_levent','dokuma_levent_is','dokuma_duraklama','numuneler','dokuma_fason_siparisleri'];
+const _anlikKimlik='t_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+let _anlikKanal=null,_anlikGiden=new Map(),_anlikGidenZ=null,_anlikGelen=new Set(),_anlikGelenZ=null,_anlikSipBekliyor=false;
+function anlikKanalAl(){
+  if(!sb||typeof sb.channel!=='function')return null;
+  if(_anlikKanal)return _anlikKanal;
+  _anlikKanal=sb.channel(ANLIK_KANAL,{config:{broadcast:{ack:false,self:false}}}).on('broadcast',{event:'d'},({payload})=>{try{anlikGeldi(payload);}catch(e){}});
+  _anlikKanal.subscribe();
+  return _anlikKanal;
+}
+/** Yazma kapısı: sb.from(tablo) yazma yöntemleri sarılır; yazma hatasız bitince haber sıraya girer. Yazmanın kendisine
+    dokunmaz. Sorgu nesnesi zincirde kendini döndürdüğü için sonuç bir kez sarılır; silmede kimlikler eq / in'den okunur. */
+function anlikYazmaIzle(client){
+  if(!client||client.__anlikIzle||typeof client.from!=='function')return;
+  client.__anlikIzle=true;
+  const asilFrom=client.from.bind(client);
+  client.from=tablo=>{
+    const q=asilFrom(tablo);
+    ['insert','upsert','update','delete'].forEach(y=>{
+      const asil=q&&q[y]&&q[y].bind(q);
+      if(!asil)return;
+      q[y]=(...a)=>{const s=asil(...a);try{anlikSonucIzle(s,tablo,y);}catch(e){}return s;};
+    });
+    return q;
+  };
+}
+function anlikSonucIzle(s,tablo,y){
+  if(!s||typeof s.then!=='function'||s.__anlikIzle)return;
+  s.__anlikIzle=true;
+  const silinen=[];
+  if(y==='delete')['eq','in'].forEach(f=>{const af=s[f]&&s[f].bind(s);if(!af)return;s[f]=(k,d)=>{if(k==='id')silinen.push(...[].concat(d));return af(k,d);};});
+  const asilThen=s.then.bind(s);
+  s.then=(tamam,hata)=>asilThen(r=>{try{if(!r||!r.error)anlikYayinla(tablo,silinen);}catch(e){}return tamam?tamam(r):r;},hata);
+}
+function anlikYayinla(tablo,silinen){
+  if(!ANLIK_TABLOLAR.includes(tablo))return;
+  let k=_anlikGiden.get(tablo);
+  if(!k){k=new Set();_anlikGiden.set(tablo,k);}
+  (silinen||[]).forEach(id=>{if(id!=null&&id!=='')k.add(String(id));});
+  if(!_anlikGidenZ)_anlikGidenZ=setTimeout(anlikGonder,120);
+}
+function anlikGonder(){
+  _anlikGidenZ=null;
+  const t={};
+  _anlikGiden.forEach((k,tablo)=>{t[tablo]=[...k].slice(0,300);});
+  _anlikGiden.clear();
+  const ch=Object.keys(t).length?anlikKanalAl():null;
+  if(!ch)return;
+  try{Promise.resolve(ch.send({type:'broadcast',event:'d',payload:{k:_anlikKimlik,p:'DOKUMA_PANEL',t}})).catch(()=>{});}catch(e){}
+}
+function anlikGeldi(p){
+  if(!p||!p.t||typeof p.t!=='object'||p.k===_anlikKimlik)return;
+  Object.keys(p.t).forEach(t=>{if(ANLIK_TABLOLAR.includes(t))_anlikGelen.add(t);});
+  if(_anlikGelen.size&&!_anlikGelenZ)_anlikGelenZ=setTimeout(anlikIsle,400);
+}
+/** Haber geldi: 10 sn'lik tur beklenmeden hemen bakılır. Tur o an çalışıyorsa bitince yeniden (en çok 6 deneme). */
+async function anlikIsle(deneme){
+  _anlikGelenZ=null;
+  if(!_anlikGelen.size||!sb||!currentUser){_anlikGelen.clear();return;}
+  if(_tazeMesgul){if((deneme||0)<6)_anlikGelenZ=setTimeout(()=>anlikIsle((deneme||0)+1),700);else _anlikGelen.clear();return;}
+  const t=new Set(_anlikGelen);
+  _anlikGelen.clear();
+  if(t.has('siparisler'))_anlikSipBekliyor=true;
+  if(t.has('siparis_akis')||t.has('kumas_stok'))await tazeIzleTick();
+  anlikSiparisDene();
+}
+/** Sipariş listesi yalnız kimse yazmıyorken yenilenir (siparisDegisimKontrol kuralı); meşgulse bayrak bekler. */
+function anlikSiparisDene(){
+  if(!_anlikSipBekliyor||document.hidden||karsilamaAcik()||panelMesgulMu())return;
+  _anlikSipBekliyor=false;
+  anlikSiparisYenile().catch(()=>{});
+}
+/** Yalnız değişen siparişler okunur ve listeye işlenir (tam liste ~470 KB; değişen birkaç KB). Silinen sipariş burada
+    görülmez — sayı tutmayınca 3 dk'lık siparisDegisimKontrol listeyi baştan okur. */
+async function anlikSiparisYenile(){
+  if(_sipTazeleniyor||!_sipIz||!_sipIz.son)return;
+  _sipTazeleniyor=true;
+  try{
+    const t=new Date((Date.parse(_sipIz.son)||0)-10000).toISOString();
+    const{data,error}=await sb.from('siparisler').select(SIP_KOLON).gt('updated_at',t).limit(200);
+    if(error||!data||!data.length)return;
+    if(data.length>=200){await loadSiparisler(true);return;}
+    const eski=new Map(_tumSiparisler.map(s=>[String(s.id),s]));
+    if(data.every(s=>String(eski.get(String(s.id))?.updated_at||'')===String(s.updated_at||'')))return;   /* hepsi zaten biliniyor */
+    const ids=new Set(data.map(s=>String(s.id)));
+    _tumSiparisler=[...data,..._tumSiparisler.filter(s=>!ids.has(String(s.id)))]
+      .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))||(Number(b.id)||0)-(Number(a.id)||0));
+    siparisler=_tumSiparisler.filter(s=>!siparisKapaliMi(s.durum));
+    _sipIz={sayi:_tumSiparisler.length,son:_tumSiparisler.reduce((m,s)=>String(s.updated_at||'')>m?String(s.updated_at||''):m,'')};
+    _uaHaystackCache.clear();_sipHaystackCache.clear();
+    renderSiparisler();
+  }catch(e){}
+  finally{_sipTazeleniyor=false;}
+}
+/* kanal girişten sonra açılır; meşgulken bekleyen sipariş listesi boşalınca alınır */
+setInterval(()=>{if(sb&&currentUser){anlikKanalAl();anlikSiparisDene();}},5000);
 
 /** Sayfa sayfa çeker (range). sorguKur her sayfada TAZE bir sorgu üretmeli. */
 async function tumSatirlariCek(sorguKur){
@@ -3677,8 +3821,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261013-e8d40066';
-const PANEL_ZAMAN=1791889490;
+const PANEL_SURUM='20261014-2f05ad27';
+const PANEL_ZAMAN=1791970548;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
