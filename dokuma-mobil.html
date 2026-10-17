@@ -938,14 +938,15 @@ function ortakKesimOnuKumasKalemleri(plan, ki) {
    Yük: anahtar ~1 KB / 10 dk, cihaz bildirimi 30 dk'da bir küçük istek; fark bildirimi yalnız KARSILASTIR'da ve farkta.
    Modülün kodu geldiğinde: yapiModulleri'nde hazir: true + yapiOkuyucuSurum bir artar (dört programda birlikte).
    Modüller: M1 sevk okuma + M2 üretim okuma (aşağıda, "KARŞILAŞTIRMA OKUYUCUSU"); M3 stok sayımı yazma (assets/stok-sayim.js,
-   anahtar YENI'de yazma kapısı erp_sayim_yaz, KARSILASTIR'da arşiv iki yerden). */
+   anahtar YENI'de yazma kapısı erp_sayim_yaz, KARSILASTIR'da arşiv iki yerden); M4 üretim yazma (dokuma; KARSILASTIR'da kapıya
+   yazmadan sorulur — aşağıda "M4 ÜRETİM YAZMA · DENEME"; yeni yazım kodu henüz yok, yeni: false). */
 
 var _yapi = { ortam: null, ayar: null, ayarZaman: 0, ayarYok: false, ayarYokZaman: 0, ayarYukleniyor: null, fark: [], farkGorulen: new Set(),
     farkZ: null, farkDeneme: 0, cihazZaman: 0, zamanlayici: null, geciciKimlik: '' };
 
 /** Bu okuyucunun sürümü. Bir modülün okuma / yazma kodu değişince artar; eşitleme kapatılmadan önce cihaz listesinde
     bütün cihazların bu sayıya ulaştığına bakılır. */
-function yapiOkuyucuSurum() { return 4; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) */
+function yapiOkuyucuSurum() { return 5; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) · 5: M4 üretim yazma karşılaştırması (17.10 gece) */
 
 /** Geçiş modülleri (plan sırası). hazir: bu sürümde modülün karşılaştırma / yeni okuma kodu var mı.
     yeni: ekranın yeni sayıya geçiş kodu var mı — yoksa anahtar YENI'ye çevrilse de modül KARSILASTIR çalışır. */
@@ -954,7 +955,7 @@ function yapiModulleri() {
         { k: 'sevk', m: 'M1', ad: 'Sevk okuma', hazir: true, yeni: false },
         { k: 'uretim', m: 'M2', ad: 'Üretim sayıları okuma', hazir: true, yeni: false },
         { k: 'stok_sayim', m: 'M3', ad: 'Stok sayımı (pilot yazma)', hazir: true, yeni: true },   /* assets/stok-sayim.js */
-        { k: 'uretim_yazma', m: 'M4', ad: 'Üretim yazma', hazir: false },
+        { k: 'uretim_yazma', m: 'M4', ad: 'Üretim yazma (dokuma)', hazir: true, yeni: false },   /* yapiUretimDene */
         { k: 'depo', m: 'M5', ad: 'Depo ve sevk yazma', hazir: false },
         { k: 'fason', m: 'M6', ad: 'Fason ve terbiye', hazir: false },
         { k: 'recete', m: 'M7', ad: 'Ürün ağacı ve kumaş planı', hazir: false },
@@ -1147,6 +1148,46 @@ async function yapiRpc(ad, govde, tablolar) {
     } catch (e) {
         return { ok: false, err: 'ag', mesaj: String((e && e.message) || e) };
     }
+}
+
+/* ═══ M4 ÜRETİM YAZMA · DENEME (karşılaştırma aşaması, 17.10.2026 gece) ════════════════════════════════════════════
+   SQL: supabase/yapi-adim/10-uretim-yazma (erp_uretim_yaz / erp_uretim_duzelt, deneme modu: bütün denetimler, HİÇBİR ŞEY yazmaz,
+   kilitlemez). Anahtar 'uretim_yazma' KARSILASTIR'dayken dokuma topu (ve düzeltme / silme) programda BUGÜNKÜ GİBİ eski yere yazılır;
+   yazmadan önce kapıya "bu topu kabul eder miydin?" diye sorulur. Yeni toplarda program cevabı BEKLEMEZ (yazım gecikmez; kapı
+   önce eski yeri okursa gid'i görüp "zaten yazıldı" der, sahte ikiz çıkmaz). Düzeltme / silmede kısa beklenir (≤ 1,5 sn), yoksa
+   kapı değişmiş topu okurdu. Kapı reddederdi ya da bir alanı atardı → fark defteri: anahtar '<yaz|duzelt>|<neden>|<sipariş>|<kalem>',
+   eski 1 (program yazdı) / yeni 0 (kapı reddederdi) · 2 (kabul ama alan atardı), ayrıntıda neden ve miktar. Ağ hatası / oturum fark
+   sayılmaz; kapı kurulu değilse bu oturumda bir daha sorulmaz. ESKI / YENI'de hiç istek yok. Bağlantı yerleri: ana program 05
+   dtKaydetKalemler / tpDokumaGirisiYaz / dtGirisSil / dtGirisRevizePrompt · Dokuma Panel dokumaGirisEkle / dokumaGirisGuncelle /
+   dokumaGirisSil. Ölçüm _yapiUretim.sayac (istek / fark / hata). */
+var _yapiUretim = { kapiYok: false, sayac: { istek: 0, fark: 0, hata: 0 } };
+
+function yapiUretimDeneAcikMi() { return yapiKarsilastirMi('uretim_yazma') && !_yapiUretim.kapiYok; }
+
+/** islem 'yaz' (govde = erp_uretim_yaz p_giris) | 'duzelt' (govde = erp_uretim_duzelt p_istek). Döner: kapının cevabı (ya da
+    null — kapalı / hata). Hiç fırlatmaz; programın yazımını değiştirmez. */
+function yapiUretimDene(islem, govde) {
+    if (!govde || !yapiUretimDeneAcikMi()) return Promise.resolve(null);
+    const g = Object.assign({}, govde, { deneme: true });
+    if (!g.program && _yapi.ortam) g.program = String(_yapi.ortam.platform || '');
+    _yapiUretim.sayac.istek++;
+    const p = islem === 'duzelt' ? yapiRpc('erp_uretim_duzelt', { p_istek: g }) : yapiRpc('erp_uretim_yaz', { p_giris: g });
+    return p.then((r) => { try { yapiUretimDeneSonuc(islem === 'duzelt' ? 'duzelt' : 'yaz', g, r); } catch (e) {} return r; }, () => null);
+}
+
+function yapiUretimDeneSonuc(islem, g, r) {
+    if (!r) return;
+    if (r.err === 'kurulu_degil') { _yapiUretim.kapiYok = true; return; }
+    if (['ag', 'baglanti', 'oturum', 'cevap'].includes(r.err)) { _yapiUretim.sayac.hata++; return; }
+    const neden = r.ok ? (r.atilan ? 'atilan' : '') : String(r.err || 'bilinmiyor');
+    if (!neden) return;
+    _yapiUretim.sayac.fark++;
+    yapiFarkBildir('uretim_yazma', [islem, neden, g.siparis_id, g.kalem_idx].join('|'), 1, r.ok ? 2 : 0, {
+        siparis_id: g.siparis_id, kalem_idx: g.kalem_idx,
+        ayrinti: { islem, neden, program: g.program || '', kaynak: g.kaynak || '', gid: g.gid || '', metre: g.metre, kg: g.kg, adet: g.adet,
+            islem_turu: g.islem || '', istenen: r.istenen || '', atilan: r.atilan || null, giren: r.giren || '',
+            ikiz: Array.isArray(r.ikizler) ? r.ikizler.length : 0 }
+    });
 }
 
 /* ═══ KARŞILAŞTIRMA OKUYUCUSU — M1 sevk · M2 üretim (16–17.10.2026) ════════════════════════════════════════════════
@@ -2364,6 +2405,21 @@ function yeniGirisKimligi(){
 
 /** Tek top ekler. Başarılıysa yazılan giriş nesnesini döner.
     kimlik: yeniGirisKimligi() çıktısı (verilmezse yenisi üretilir). */
+/* Yapı geçişi M4 · karşılaştırma (YAPI-OKUMA bloğundaki yapiUretimDene; anahtar 'uretim_yazma' KARSILASTIR'da): yazmadan önce
+   kapıya "bu topu / düzeltmeyi kabul eder miydin?" diye sorulur (kapı hiçbir şey yazmaz); tabletin yazımı DEĞİŞMEZ. Ana programın
+   05 dtUretimDeneGovde / dtUretimDuzeltDene ile aynı biçim. İnternet yokken sorulmaz. */
+function uretimDeneAcik(){return typeof yapiUretimDeneAcikMi==='function'&&yapiUretimDeneAcikMi()&&navigator.onLine!==false;}
+function uretimDeneKalemIz(siparisId,kalemIdx){
+  const sip=(_tumSiparisler.length?_tumSiparisler:siparisler).find(x=>String(x.id)===String(siparisId));
+  const k=sip?(parseKalemler(sip)[kalemIdx]||{}):{};
+  return{kod:k.kod||'',ad:k.ad||'',renk:k.renk||'',ebat:k.ebat||''};
+}
+/** Düzeltme / silmede cevap en çok 1,5 sn beklenir (yazdıktan sonra sorulursa kapı değişmiş topu okurdu) */
+function uretimDuzeltDene(govde){
+  if(!uretimDeneAcik())return Promise.resolve(null);
+  return Promise.race([yapiUretimDene('duzelt',govde),new Promise(r=>setTimeout(()=>r(null),1500))]);
+}
+
 async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet,kimlik){
   kimlik=kimlik||yeniGirisKimligi();
   /* Yazma kapısı: kalemde istenmeyen alan yazılmaz (ADET: m+adet, KG: m+kg, MT: yalnız m; MT + ek birim: m + işaretlenen).
@@ -2392,6 +2448,10 @@ async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet,kimlik){
     gid,
     ...(kullanici?{user:kullanici,kullanici}:{})
   };
+  /* yapı geçişi M4 karşılaştırma: yazmadan önce kapıya sor — cevap BEKLENMEZ, yazım değişmez (bekleyen kuyrukta ikiz sorulmaz) */
+  if(uretimDeneAcik())yapiUretimDene('yaz',{gid,asama:'DOKUMA',siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),
+    metre:metre||0,kg:kg||0,adet:adet||0,tarih:kimlik.tarih_iso,kaynak:KAYNAK,ek:{kumas:kimlik.kumas,...(kimlik.tezgah||{})},
+    ikiz_onay:kimlik.bekliyor?{atla:'kuyruk'}:(kimlik.ikiz_onaylandi||null)});
   let sonHata=null;
   for(let deneme=0;deneme<YAZMA_DENEME;deneme++){
     let taze;
@@ -2684,6 +2744,8 @@ async function dokumaDenetimYaz(tip,ctx){
 
 /** Yanlış girilen topu siler — gid ile, toplamlardan da düşerek. */
 async function dokumaGirisSil(siparisId,kalemIdx,gid,kalemAd){
+  /* yapı geçişi M4 karşılaştırma: silmeden önce kapıya sor (yazım değişmez) */
+  await uretimDuzeltDene({siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),islem:'SIL',gid,kaynak:KAYNAK,kalem_ad:kalemAd||''});
   let sonHata=null;
   /* Yazma hatasız döndüyse ama doğrulama okuması patladıysa, yeniden denemede kayıt
      "yok" görünür — bu bizim silmemizdir; izini kaybetmemek için ctx burada saklanır. */
@@ -2733,6 +2795,9 @@ async function dokumaGirisGuncelle(siparisId,kalemIdx,gid,yeniDeger,kalemAd){
   const yMetre=parseFloat(yeniDeger.metre)||0;
   const yKg=parseFloat(yeniDeger.kg)||0;
   const yAdet=parseInt(yeniDeger.adet,10)||0;
+  /* yapı geçişi M4 karşılaştırma: düzeltmeden önce kapıya sor (yazım değişmez) */
+  await uretimDuzeltDene({siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),islem:'DUZELT',gid,
+    metre:yMetre,kg:yKg,adet:yAdet,kaynak:KAYNAK,kalem_ad:kalemAd||''});
   let sonHata=null;
   /* Yazma hatasız döndü ama doğrulama okuması patladıysa yeniden denemede değerler
      zaten yeni görünür; "Değişiklik yok" deyip denetim satırını atlamamak için, kendi
@@ -4502,8 +4567,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261017-1c94bfed';
-const PANEL_ZAMAN=1792264847;
+const PANEL_SURUM='20261017-4b9b4397';
+const PANEL_ZAMAN=1792270340;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
