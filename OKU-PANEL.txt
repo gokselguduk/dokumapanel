@@ -128,7 +128,7 @@ YENİ SÜRÜM KİLİTLİ TABLETE NASIL GELİR
 YÜKLEME (13.10.2026, "iki klasör aynı"): sürüm artık KAYNAK html'in içinde
 damgalıdır ve surum.json bu klasörde de durur (npm run sync:mobil yazar).
 _uretilen/dokuma-panel-github/ (node scripts/paket-dokuma-github.js) ile
-mobil/dokuma-panel/ AYNI dosyaları taşır — hangisinden yüklenirse yüklensin
+dokuma-panel/ AYNI dosyaları taşır — hangisinden yüklenirse yüklensin
 olur. Klasörün İÇİNDEKİ BÜTÜN dosyalar dokumapanel deposuna (html +
 surum.json birlikte). 12.10'da dosyalar iki kez sürümsüz kaynak klasörden
 yüklenmiş, tablet eski sayfada kalmıştı — bu yüzden.
