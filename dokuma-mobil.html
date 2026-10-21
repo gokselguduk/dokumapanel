@@ -947,7 +947,7 @@ var _yapi = { ortam: null, ayar: null, ayarZaman: 0, ayarYok: false, ayarYokZama
 
 /** Bu okuyucunun sürümü. Bir modülün okuma / yazma kodu değişince artar; eşitleme kapatılmadan önce cihaz listesinde
     bütün cihazların bu sayıya ulaştığına bakılır. */
-function yapiOkuyucuSurum() { return 6; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) · 5: M4 üretim yazma karşılaştırması (17.10 gece) · 6: M5b depo yazma karşılaştırması (18.10) */
+function yapiOkuyucuSurum() { return 8; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) · 5: M4 üretim yazma karşılaştırması (17.10 gece) · 6: M5b depo yazma karşılaştırması (18.10) · 7: Dokuma Depo sevki tek işlem denemesi (M5b 2, 21.10) · 8: depo düzeltme / geri alma denemesi (M5c, 21.10) */
 
 /** Geçiş modülleri (plan sırası). hazir: bu sürümde modülün karşılaştırma / yeni okuma kodu var mı.
     yeni: ekranın yeni sayıya geçiş kodu var mı — yoksa anahtar YENI'ye çevrilse de modül KARSILASTIR çalışır. */
@@ -1202,19 +1202,27 @@ function yapiUretimDeneSonuc(islem, g, r) {
    mamul-depo-toplu.js mamulTopluKaydet (MAMUL_DEPO) · stok-kart-desktop.js kumasTopluKaydet (KUMAS), kumasKartStokGirisYaz (KART)
    · 07 handleSave depo formu (DEPO_HAREKET) · 04 sevkiyatMamulDepoHareketYaz (SEVKIYAT) · 02 dokumaDepoSevkDefterYaz + Genel
    Depo eşi (DOKUMA_DEPO) · Dokuma Panel ddSevkKaydet (DOKUMA_PANEL) · stok-sayim.js sayimHareketleriYaz (STOK_SAYIM).
+   M5b 2. sürüm (okuyucu 7): Dokuma Depo sevki sevkin BÜTÜN parçalarını tek denemede sorar — ek = { tek_islem: true, kumas_gelis }
+   (Konfeksiyon'da KUMAS_GELIS satırı; Genel Depo'da giriş eşi satırlarda); anahtar 'tek|<neden>|…'. Geç gelen 'depo_kalan' (kapı az önce
+   yazılan sevki de görürdü) fark sayılmaz. 1. sürüm kapı ek alanları okumaz (yalnız satırları dener).
    Ölçüm _yapiDepo.sayac (istek / fark / hata / gec). */
-var _yapiDepo = { kapiYok: false, sayac: { istek: 0, fark: 0, hata: 0, gec: 0 } };
+var _yapiDepo = { kapiYok: false, duzeltKapiYok: false, sayac: { istek: 0, fark: 0, hata: 0, gec: 0 } };
 
 function yapiDepoDeneAcikMi() { return yapiKarsilastirMi('depo') && !_yapiDepo.kapiYok; }
 
-/** ekran: kapının ekran adı; satirlar: programın kumas_stok'a yazacağı satırlar AYNEN. Döner: kapının cevabı (ya da null).
-    Hiç fırlatmaz; programın yazımını değiştirmez (satırların kopyası gönderilir). */
-function yapiDepoDene(ekran, satirlar) {
+/** ekran: kapının ekran adı; satirlar: programın kumas_stok'a yazacağı satırlar AYNEN; ek (isteğe bağlı, Dokuma Depo sevki):
+    { tek_islem: true, kumas_gelis: {siparis_id, kalem_ad, miktar, notlar} } — sevkin öbür parçaları. Döner: kapının cevabı (ya da null).
+    Hiç fırlatmaz; programın yazımını değiştirmez (satırların ve parçaların kopyası gönderilir). */
+function yapiDepoDene(ekran, satirlar, ek) {
     if (!yapiDepoDeneAcikMi() || !Array.isArray(satirlar) || !satirlar.length) return Promise.resolve(null);
-    let liste;
-    try { liste = JSON.parse(JSON.stringify(satirlar)); } catch (e) { return Promise.resolve(null); }
+    let liste, kg = null;
+    try {
+        liste = JSON.parse(JSON.stringify(satirlar));
+        if (ek && ek.kumas_gelis) kg = JSON.parse(JSON.stringify(ek.kumas_gelis));
+    } catch (e) { return Promise.resolve(null); }
     const g = { gid: 'd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10), ekran: String(ekran || ''),
         program: String((_yapi.ortam && _yapi.ortam.platform) || ''), deneme: true, satirlar: liste };
+    if (ek && ek.tek_islem) { g.tek_islem = true; if (kg) g.kumas_gelis = kg; }
     const durum = { gec: false };
     _yapiDepo.sayac.istek++;
     const p = yapiRpc('erp_stok_hareket_yaz', { p_istek: g })
@@ -1224,8 +1232,8 @@ function yapiDepoDene(ekran, satirlar) {
 }
 
 /** Yazımdan hemen önce çağrılır: kapıya sorar, en çok ms (varsayılan 1,5 sn) bekler. Kapalıysa beklemeden döner. */
-async function yapiDepoDeneBekle(ekran, satirlar, ms) {
-    const p = yapiDepoDene(ekran, satirlar);
+async function yapiDepoDeneBekle(ekran, satirlar, ms, ek) {
+    const p = yapiDepoDene(ekran, satirlar, ek);
     if (!p.durum) return null;
     const s = await Promise.race([p, new Promise((r) => setTimeout(() => r('__zaman'), ms != null ? ms : 1500))]);
     if (s === '__zaman') { p.durum.gec = true; return null; }
@@ -1236,21 +1244,104 @@ function yapiDepoDeneSonuc(g, r, durum) {
     if (!r) return;
     if (r.err === 'kurulu_degil') { _yapiDepo.kapiYok = true; return; }
     if (['ag', 'baglanti', 'oturum', 'cevap'].includes(r.err)) { _yapiDepo.sayac.hata++; return; }
-    if (r.err === 'stok_yetersiz' && durum && durum.gec) { _yapiDepo.sayac.gec++; return; }
+    if ((r.err === 'stok_yetersiz' || r.err === 'depo_kalan') && durum && durum.gec) { _yapiDepo.sayac.gec++; return; }
     const atilan = r.ok && Array.isArray(r.atilan) && r.atilan.length ? r.atilan : null;
     const neden = r.ok ? (atilan ? 'atilan' : '') : String(r.err || 'bilinmiyor');
     if (!neden) return;
     _yapiDepo.sayac.fark++;
     const s = (Number.isInteger(r.satir) && g.satirlar[r.satir])
         || g.satirlar.find((x) => x && x.siparis_id != null && x.siparis_id !== '') || g.satirlar[0] || {};
-    const sid = s.siparis_id != null && s.siparis_id !== '' ? s.siparis_id : null;
-    yapiFarkBildir('depo', ['ekle', neden, g.ekran, sid || '', sid != null && s.kalem_idx != null ? s.kalem_idx : '',
+    /* kalan sınırı kalemi kapı söyler */
+    const kRet = !r.ok && r.siparis_id != null && r.kalem_idx != null;
+    const sid = kRet ? r.siparis_id : (s.siparis_id != null && s.siparis_id !== '' ? s.siparis_id : null);
+    const ki = kRet ? r.kalem_idx : (sid != null && s.kalem_idx != null ? s.kalem_idx : null);
+    yapiFarkBildir('depo', [g.tek_islem ? 'tek' : 'ekle', neden, g.ekran, sid || '', ki != null ? ki : '',
         atilan ? atilan.join(',') : String(r.stok_kodu || s.stok_kodu || '').slice(0, 40)].join('|'), 1, r.ok ? 2 : 0, {
-        siparis_id: sid, kalem_idx: sid != null ? s.kalem_idx : null,
-        ayrinti: { islem: 'ekle', neden, ekran: g.ekran, program: g.program, gid: g.gid, satir_sayisi: g.satirlar.length,
+        siparis_id: sid, kalem_idx: sid != null ? ki : null,
+        ayrinti: { islem: g.tek_islem ? 'tek' : 'ekle', neden, ekran: g.ekran, program: g.program, gid: g.gid, satir_sayisi: g.satirlar.length,
             satir: Number.isInteger(r.satir) ? r.satir : null, islem_turu: s.islem_turu || '', kaynak_birim: s.kaynak_birim || '',
             stok_kodu: s.stok_kodu || '', miktar_mt: s.miktar_mt, miktar_kg: s.miktar_kg, cuval_sayisi: s.cuval_sayisi,
-            detay: r.detay || '', hedef: r.hedef || '', mevcut: r.mevcut, istenen: r.istenen, atilan }
+            detay: r.detay || '', hedef: r.hedef || '', mevcut: r.mevcut, istenen: r.istenen, atilan,
+            kalan: r.kalan, kumas_gelis: g.kumas_gelis ? { siparis_id: g.kumas_gelis.siparis_id, miktar: g.kumas_gelis.miktar } : undefined }
+    });
+}
+
+/* ═══ M5c DEPO DÜZELTME / GERİ ALMA · DENEME (karşılaştırma aşaması, 21.10.2026) ═══════════════════════════════════════
+   SQL: supabase/yapi-adim/13-stok-hareket-duzelt (erp_stok_hareket_duzelt; deneme: yaz + denetle + geri al). Anahtar 'depo'
+   KARSILASTIR'dayken düzeltme / geri alma programda BUGÜNKÜ GİBİ yazılır; yazmadan önce kapıya AYNI plan (hangi satır, gördüğü hâl,
+   yama / silme, iz bilgisi) deneme olarak sorulur, en çok 1,5 sn beklenir. Kapı reddederdi → fark defteri: anahtar
+   'duzelt|<neden>|<ekran>|<sipariş>|<kalem>|<ayrıntı>', eski 1 / yeni 0. Geç gelen cevap fark SAYILMAZ (program yazmış olur, kapı
+   değişmiş / silinmiş satır görür). Kapı kurulu değilse bu oturumda bir daha sorulmaz. Bağlantı yerleri (ekran): 11 depoHareketDuzeltKaydet
+   / depoHareketSil (DEPO_DUZELT) · 11 depoDokumaSevkDuzeltKaydet / depoDokumaSevkGeriAl (DOKUMA_DEPO_SEVK) · 04 konfKesimOnuSevkGeriAl
+   (KESIM_ONU) · Dokuma Panel ddSevkDuzenleKaydet / ddSevkGeriAl (DOKUMA_PANEL) · 33 fisDuzeltUygula (SEVKIYAT_FISI). */
+function yapiDepoDuzeltDeneAcikMi() { return yapiKarsilastirMi('depo') && !_yapiDepo.duzeltKapiYok; }
+
+/** Kapıya gidecek tek işlem: tur 'guncelle' | 'sil'; row = programın az önce TAZE okuduğu satır; patch = yazacağı yama (updated_at / id /
+    created_at kapıda); iz = { kanal, etiket, kaynak, eski? (yalnız '_' ile başlayan ek alanlar kapıya geçer) }. Gördüğü hâl: updated_at +
+    yamadaki alanların önceki değeri (silmede miktarlar; işlem kaydında notlar). _b: fark defteri için sipariş / kalem / kod (kapı okumaz). */
+function yapiDuzeltIslem(tur, tablo, row, patch, iz) {
+    const r = row || {};
+    const disari = ['updated_at', 'id', 'created_at'];
+    const gordugu = {};
+    if (r.updated_at !== undefined) gordugu.updated_at = r.updated_at;
+    const alanlar = tur === 'sil' ? ['miktar_mt', 'miktar_kg', 'cuval_sayisi'] : Object.keys(patch || {});
+    alanlar.forEach((k) => { if (Object.prototype.hasOwnProperty.call(r, k) && !disari.includes(k) && k !== 'islem_gecmisi') gordugu[k] = r[k]; });
+    if (tablo === 'siparis_akis' && Object.prototype.hasOwnProperty.call(r, 'notlar')) gordugu.notlar = r.notlar;
+    const o = { tur, tablo, id: String(r.id ?? ''), gordugu };
+    if (tur !== 'sil') {
+        o.patch = {};
+        Object.keys(patch || {}).forEach((k) => { if (!disari.includes(k)) o.patch[k] = patch[k]; });
+    }
+    if (iz) o.iz = iz;
+    let ki = r.kalem_idx;
+    if (tablo === 'siparis_akis') { try { ki = JSON.parse(r.notlar || '{}').kalem_idx; } catch (e) { ki = null; } }
+    o._b = { sid: r.siparis_id ?? null, ki: ki ?? null, kod: r.stok_kodu || r.kalem_ad || '' };
+    return o;
+}
+
+/** ekran: kapının ekran adı; islemler: yapiDuzeltIslem çıktıları; ek: { neden }. Hiç fırlatmaz; programın yazımını değiştirmez. */
+function yapiDepoDuzeltDene(ekran, islemler, ek) {
+    if (!yapiDepoDuzeltDeneAcikMi() || !Array.isArray(islemler) || !islemler.length) return Promise.resolve(null);
+    let liste;
+    try { liste = JSON.parse(JSON.stringify(islemler)); } catch (e) { return Promise.resolve(null); }
+    const g = { gid: 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10), ekran: String(ekran || ''),
+        program: String((_yapi.ortam && _yapi.ortam.platform) || ''), deneme: true, islemler: liste };
+    if (ek && ek.neden) g.neden = String(ek.neden).slice(0, 500);
+    const durum = { gec: false };
+    _yapiDepo.sayac.istek++;
+    const p = yapiRpc('erp_stok_hareket_duzelt', { p_istek: g })
+        .then((r) => { try { yapiDepoDuzeltDeneSonuc(g, r, durum); } catch (e) {} return r; }, () => null);
+    p.durum = durum;
+    return p;
+}
+
+/** Yazımdan hemen önce: kapıya sorar, en çok ms (varsayılan 1,5 sn) bekler. Kapalıysa beklemeden döner. */
+async function yapiDepoDuzeltDeneBekle(ekran, islemler, ms, ek) {
+    const p = yapiDepoDuzeltDene(ekran, islemler, ek);
+    if (!p.durum) return null;
+    const s = await Promise.race([p, new Promise((r) => setTimeout(() => r('__zaman'), ms != null ? ms : 1500))]);
+    if (s === '__zaman') { p.durum.gec = true; return null; }
+    return s;
+}
+
+function yapiDepoDuzeltDeneSonuc(g, r, durum) {
+    if (!r) return;
+    if (r.err === 'kurulu_degil') { _yapiDepo.duzeltKapiYok = true; return; }
+    if (['ag', 'baglanti', 'oturum', 'cevap'].includes(r.err)) { _yapiDepo.sayac.hata++; return; }
+    if (r.ok) return;
+    if (durum && durum.gec) { _yapiDepo.sayac.gec++; return; }   /* program yazmış: kapı değişmiş / silinmiş satır görür */
+    _yapiDepo.sayac.fark++;
+    const neden = String(r.err || 'bilinmiyor');
+    const x = (Number.isInteger(r.islem) && g.islemler[r.islem]) || g.islemler[0] || {};
+    const b = x._b || {};
+    const sid = b.sid != null && b.sid !== '' ? b.sid : null;
+    const ayr = String(r.neden || r.alan || (r.alanlar && r.alanlar.join(',')) || b.kod || '').slice(0, 60);
+    yapiFarkBildir('depo', ['duzelt', neden, g.ekran, sid || '', sid != null && b.ki != null ? b.ki : '', ayr].join('|'), 1, 0, {
+        siparis_id: sid, kalem_idx: sid != null ? b.ki : null,
+        ayrinti: { islem: 'duzelt', neden, ekran: g.ekran, program: g.program, gid: g.gid, islem_sayisi: g.islemler.length,
+            islem_no: Number.isInteger(r.islem) ? r.islem : null, tur: x.tur || '', tablo: x.tablo || '', id: x.id || '',
+            ayrinti: r.neden || '', alan: r.alan || '', alanlar: r.alanlar, detay: r.detay || '', kalan: r.kalan,
+            islemler: g.islemler.map((y) => (y.tur || '') + ':' + (y.tablo || '') + ':' + (y.id || '')) }
     });
 }
 
@@ -4068,6 +4159,21 @@ function ddSevkDurum(rid,html,tur){
   el.dataset.imza='';
   el.innerHTML=html?`<div style="margin-top:8px;padding:10px 11px;border-radius:9px;font-size:12.5px;font-weight:700;line-height:1.5;border:1px solid ${tur==='hata'?'rgba(239,68,68,.45)':'var(--border2)'};background:${tur==='hata'?'rgba(239,68,68,.10)':'var(--surface)'};color:${tur==='hata'?'var(--red)':'var(--text)'}">${html}</div>`:'';
 }
+/* Dokuma Panel → Konfeksiyon sevkinin KUMAS_GELIS satırı (yazmaz). Deneme (defterId null — kapı defter kimliğini kendisi koyar) ve
+   yazım AYNI fonksiyondan kurulur — M5b 2. sürüm tek işlem denemesi; alan sırası ve içerik bugünkü yazımla aynı. */
+function ddKumasGelisSatir({now,user,defterId,sid,ki,stokKodu,sno,kumasCinsi,tip0,kg,mt,ad,k0,renk,sip,miktar}){
+  const N=v=>String(v||'').trim().toLocaleUpperCase('tr-TR');
+  return{siparis_id:coerceSiparisIdForDb(sid),islem:'KUMAS_GELIS',kalem_ad:stokKodu||sno||'Kumaş',
+    miktar:ddSevkAnaMiktar(tip0,mt,kg,ad),
+    notlar:{
+      ts:now.toISOString(),user,kaynak_id:defterId,defter_ids:defterId?[defterId]:[],stok_kodu:stokKodu,lot_no:sno,kumas_cinsi:kumasCinsi,
+      kg:tip0==='KG'?kg:0,mt,adet:tip0==='ADET'?ad:0,siparis_birim:siparisKalemBirim(k0),ikinci_birim:tip0,
+      renk,firma:sip.firma||'',kalem_idx:ki,kalem_renk:k0.renk||renk||'',kalem_ebat:k0.ebat||k0.olcu||'',
+      kalem_key:[N(k0.ad||k0.kod),N(k0.renk),N(k0.ebat||k0.olcu)].join('|'),
+      durum:'KESIM_BEKLIYOR',kesilen_kg:0,kesilen_mt:0,kesilen_adet:0,hedef:'KONFEKSIYON',konf_panel:true,
+      pipeline:DD_PIPELINE,kaynak:'DOKUMA_PANEL',note:'Dokuma Depo → Konfeksiyon sevk · '+miktar
+    }};
+}
 async function ddSevkKaydet(sid,ki,onayli){
   const rid=sid+'-'+ki;
   const uyar=(m,sure)=>{showToast(m,sure||3000);ddSevkDurum(rid,esc(m),'hata');};
@@ -4140,26 +4246,16 @@ async function ddSevkKaydet(sid,ki,onayli){
       notlar:`[DOKUMA_DEPO_SEVK]${DD_ETIKET}[SEVK_YER:KONFEKSIYON]${sno?`[LOT_NO:${sno}]`:''} DP:${sid}|${ki} · ${ts} · ${user} [SEVK_HEDEF_SIPARIS:${sid}] [KAYNAK:DOKUMA_PANEL]`,
       islem_gecmisi:`✨ ${ts} — Dokuma Depo → Konfeksiyon (Dokuma Panel) · ${sno} kalem ${ki+1} · ${mt.toFixed(2)} mt / ${kg.toFixed(2)} kg / ${ad} adet · ${user}`
     };
-    /* M5b karşılaştırma: aynı satır kapıya deneme (yalnız anahtar 'depo' KARSILASTIR; yazım değişmez) */
-    try{if(typeof yapiDepoDeneBekle==='function')await yapiDepoDeneBekle('DOKUMA_PANEL',[ddSatir]);}catch(e){}
+    /* Konfeksiyon'a giden kayıt — ana programın KUMAS_GELIS'iyle aynı alanlar (Konfeksiyon Panel bunu okur); YAZMADAN kurulur
+       (M5b 2. sürüm: defter satırı + KUMAS_GELIS tek denemede sorulur), yazım aşağıda aynen */
+    const tip0=ikinciBirimTip(k0);
+    /* M5b 2. sürüm karşılaştırma: sevkin bütün parçaları tek denemede (yalnız anahtar 'depo' KARSILASTIR; yazım değişmez) */
+    try{if(typeof yapiDepoDeneBekle==='function'){const d=ddKumasGelisSatir({now,user,defterId:null,sid,ki,stokKodu,sno,kumasCinsi,tip0,kg,mt,ad,k0,renk,sip,miktar});await yapiDepoDeneBekle('DOKUMA_PANEL',[ddSatir],null,{tek_islem:true,kumas_gelis:{siparis_id:d.siparis_id,kalem_ad:d.kalem_ad,miktar:d.miktar,notlar:d.notlar}});}}catch(e){}
     const{data:dd,error:ddErr}=await sb.from('kumas_stok').insert([ddSatir]).select('id');
     if(ddErr)throw new Error('Sevk yazılamadı: '+ddErr.message);
     const defterId=dd?.[0]?.id;
-    /* Konfeksiyon'a giden kayıt — ana programın KUMAS_GELIS'iyle aynı alanlar (Konfeksiyon Panel bunu okur) */
-    const tip0=ikinciBirimTip(k0);
-    const N=v=>String(v||'').trim().toLocaleUpperCase('tr-TR');
-    const{error:akErr}=await sb.from('siparis_akis').insert([{
-      siparis_id:coerceSiparisIdForDb(sid),islem:'KUMAS_GELIS',kalem_ad:stokKodu||sno||'Kumaş',
-      miktar:ddSevkAnaMiktar(tip0,mt,kg,ad),
-      notlar:JSON.stringify({
-        ts:now.toISOString(),user,kaynak_id:defterId,defter_ids:[defterId],stok_kodu:stokKodu,lot_no:sno,kumas_cinsi:kumasCinsi,
-        kg:tip0==='KG'?kg:0,mt,adet:tip0==='ADET'?ad:0,siparis_birim:siparisKalemBirim(k0),ikinci_birim:tip0,
-        renk,firma:sip.firma||'',kalem_idx:ki,kalem_renk:k0.renk||renk||'',kalem_ebat:k0.ebat||k0.olcu||'',
-        kalem_key:[N(k0.ad||k0.kod),N(k0.renk),N(k0.ebat||k0.olcu)].join('|'),
-        durum:'KESIM_BEKLIYOR',kesilen_kg:0,kesilen_mt:0,kesilen_adet:0,hedef:'KONFEKSIYON',konf_panel:true,
-        pipeline:DD_PIPELINE,kaynak:'DOKUMA_PANEL',note:'Dokuma Depo → Konfeksiyon sevk · '+miktar
-      })
-    }]);
+    const ks=ddKumasGelisSatir({now,user,defterId:defterId,sid,ki,stokKodu,sno,kumasCinsi,tip0,kg,mt,ad,k0,renk,sip,miktar});
+    const{error:akErr}=await sb.from('siparis_akis').insert([{...ks,notlar:JSON.stringify(ks.notlar)}]);
     if(akErr){
       const{error:geriErr}=await sb.from('kumas_stok').delete().eq('id',defterId);
       throw new Error('Konfeksiyon kaydı yazılamadı: '+akErr.message+(geriErr?' — DİKKAT: depodan düşüldü, geri alınamadı ('+geriErr.message+')':' — sevk geri alındı'));
@@ -4463,6 +4559,17 @@ async function ddSevkDuzenleKaydet(btn,akisId){
     Object.keys(patch).forEach(k=>{if((parseFloat(d[k])||0)!==patch[k]){eskiAlan[k]=d[k]??null;yeniAlan[k]=patch[k];}});
     /* Önce iz — yazılamazsa hiçbir şey değişmez */
     const etiket=`Dokuma Depo → Konfeksiyon sevki düzeltildi (Dokuma Panel) · ${ad} · kalem ${z.ki+1} · ${eskiM} → ${yeniM} · sevk eden ${z.j.user||'—'}`;
+    /* Konfeksiyon kaydının yeni notu (yazımı aşağıda) */
+    const jy={...z.j,mt:yeni.mt,adet:tip==='ADET'?yeni.adet:(z.j.adet||0),kg:tip==='KG'?yeni.kg:(z.j.kg||0),
+      note:'Dokuma Depo → Konfeksiyon sevk · '+yeniM,
+      duzeltme:[...(Array.isArray(z.j.duzeltme)?z.j.duzeltme:[]),{ts:now.toISOString(),user,eski:eskiJ,yeni:{mt:yeni.mt,kg:yeni.kg,adet:yeni.adet}}]};
+    /* M5c karşılaştırma: defter satırı (değiştiyse) + KUMAS_GELIS kapıya TEK denemede (yalnız anahtar 'depo' KARSILASTIR; yazım aşağıda aynen) */
+    try{if(typeof yapiDepoDuzeltDeneBekle==='function'){
+      const isl=[];
+      if(!defterAyni)isl.push(yapiDuzeltIslem('guncelle','kumas_stok',d,patch,{kanal:'Kumaş',etiket,kaynak:'DOKUMA_SEVK_DUZELT'}));
+      isl.push(yapiDuzeltIslem('guncelle','siparis_akis',z.akis,{miktar:ddSevkAnaMiktar(z.j.ikinci_birim||tip,yeni.mt,yeni.kg,yeni.adet),notlar:JSON.stringify(jy)},null));
+      await yapiDepoDuzeltDeneBekle('DOKUMA_PANEL',isl,null,{});
+    }}catch(e){}
     const izErr=await ddSevkIzYaz([{kayit_id:d.id,islem:'DUZENLE',etiket,eski:eskiAlan,yeni:yeniAlan,kaynak:'DOKUMA_SEVK_DUZELT'}]);
     if(izErr)throw new Error('Kayıt izi yazılamadı, sevk düzeltilmedi: '+izErr.message);
     /* 1) Defter satırı → Dokuma Depo kalanı */
@@ -4472,10 +4579,7 @@ async function ddSevkDuzenleKaydet(btn,akisId){
       if(e1||!(y1||[]).length)throw new Error('Depo satırı düzeltilemedi'+(e1?': '+e1.message:'')+' — sevk değişmedi');
       degisti=true;
     }
-    /* 2) KUMAS_GELIS → Konfeksiyon'da kesim önü */
-    const jy={...z.j,mt:yeni.mt,adet:tip==='ADET'?yeni.adet:(z.j.adet||0),kg:tip==='KG'?yeni.kg:(z.j.kg||0),
-      note:'Dokuma Depo → Konfeksiyon sevk · '+yeniM,
-      duzeltme:[...(Array.isArray(z.j.duzeltme)?z.j.duzeltme:[]),{ts:now.toISOString(),user,eski:eskiJ,yeni:{mt:yeni.mt,kg:yeni.kg,adet:yeni.adet}}]};
+    /* 2) KUMAS_GELIS → Konfeksiyon'da kesim önü (notu yukarıda kuruldu: jy) */
     const{data:y2,error:e2}=await sb.from('siparis_akis').update({miktar:ddSevkAnaMiktar(z.j.ikinci_birim||tip,yeni.mt,yeni.kg,yeni.adet),notlar:JSON.stringify(jy)}).eq('id',akisId).select('id');
     if(e2||!(y2||[]).length){
       /* İkincisi yazılamadı → defter satırı eski hâline */
@@ -4520,6 +4624,12 @@ async function ddSevkGeriAl(btn,akisId){
     /* Önce iz — yazılamazsa hiçbir şey silinmez. Defter satırı kalmadıysa (yarıda kalmış silme) iz yalnız sevk satırı için. */
     const etiket=`Dokuma Depo → Konfeksiyon sevki geri alındı (Dokuma Panel) · ${ad} · kalem ${z.ki+1} · ${miktar} · sevk eden ${z.j.user||'—'}`;
     const izler=z.defter.length?z.defter.map((d,i)=>({kayit_id:d.id,eski:i===0?{...d,_kumas_gelis:z.akis}:d})):[{kayit_id:z.defterIdler[0],eski:{_kumas_gelis:z.akis}}];
+    /* M5c karşılaştırma: defter satırları + KUMAS_GELIS kapıya TEK denemede (yazım aşağıda aynen) */
+    try{if(typeof yapiDepoDuzeltDeneBekle==='function'){
+      const isl=z.defter.map((d,i)=>yapiDuzeltIslem('sil','kumas_stok',d,null,{kanal:'Kumaş',etiket,kaynak:'DOKUMA_SEVK_GERI',eski:i===0?{_kumas_gelis:z.akis}:{}}));
+      isl.push(yapiDuzeltIslem('sil','siparis_akis',z.akis,null,null));
+      await yapiDepoDuzeltDeneBekle('DOKUMA_PANEL',isl,null,{neden:'Yanlış sevk — tabletten geri alındı'});
+    }}catch(e){}
     const izErr=await ddSevkIzYaz(izler.map(x=>({...x,islem:'SIL',etiket,neden:'Yanlış sevk — tabletten geri alındı',kaynak:'DOKUMA_SEVK_GERI'})));
     if(izErr)throw new Error('Kayıt izi yazılamadı, sevk silinmedi: '+izErr.message);
     /* Defter satırı → mal depoya döner */
@@ -4634,8 +4744,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261018-b5dc3952';
-const PANEL_ZAMAN=1792349395;
+const PANEL_SURUM='20261021-4a943857';
+const PANEL_ZAMAN=1792530242;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
