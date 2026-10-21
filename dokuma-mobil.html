@@ -338,6 +338,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         Tabletten girilen kayıtta <strong>Düzenle</strong>'ye basınca miktarı değiştirebilir ya da <strong>🗑 Sil</strong> ile silebilirsiniz
         (adınız ve saatinizle kayda geçer). Başka yerden girilen kayıt burada yalnız görünür; ana programdan düzeltilir.
       </div>
+      <input id="vg-arama" class="field-input" type="search" placeholder="Ara: sipariş no, firma, ürün, desen, renk, giren kişi…"
+        autocomplete="off" autocapitalize="off" spellcheck="false" oninput="vgAramaDegisti(this.value)" style="margin:10px 0 0">
     </div>
     <div id="vg-liste-area">
       <div class="loading"><div class="spinner"></div><div>Yükleniyor…</div></div>
@@ -947,18 +949,18 @@ var _yapi = { ortam: null, ayar: null, ayarZaman: 0, ayarYok: false, ayarYokZama
 
 /** Bu okuyucunun sürümü. Bir modülün okuma / yazma kodu değişince artar; eşitleme kapatılmadan önce cihaz listesinde
     bütün cihazların bu sayıya ulaştığına bakılır. */
-function yapiOkuyucuSurum() { return 8; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) · 5: M4 üretim yazma karşılaştırması (17.10 gece) · 6: M5b depo yazma karşılaştırması (18.10) · 7: Dokuma Depo sevki tek işlem denemesi (M5b 2, 21.10) · 8: depo düzeltme / geri alma denemesi (M5c, 21.10) */
+function yapiOkuyucuSurum() { return 8; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) · 5: M4 üretim yazma karşılaştırması (17.10 gece) · 6: M5b depo yazma karşılaştırması (18.10) · 7: Dokuma Depo sevki tek işlem denemesi (M5b 2, 21.10) · 8: depo düzeltme / geri alma denemesi (M5c, 21.10) + M1 ekran geçişi (YENI'de ekran yeni sevki gösterir, 21.10) + M6 fason okuma kıyası / yazma denemesi (21.10) */
 
 /** Geçiş modülleri (plan sırası). hazir: bu sürümde modülün karşılaştırma / yeni okuma kodu var mı.
     yeni: ekranın yeni sayıya geçiş kodu var mı — yoksa anahtar YENI'ye çevrilse de modül KARSILASTIR çalışır. */
 function yapiModulleri() {
     return [
-        { k: 'sevk', m: 'M1', ad: 'Sevk okuma', hazir: true, yeni: false },
+        { k: 'sevk', m: 'M1', ad: 'Sevk okuma', hazir: true, yeni: true },   /* ekran geçişi: yapiSevkGoster (21.10) */
         { k: 'uretim', m: 'M2', ad: 'Üretim sayıları okuma', hazir: true, yeni: false },
         { k: 'stok_sayim', m: 'M3', ad: 'Stok sayımı (pilot yazma)', hazir: true, yeni: true },   /* assets/stok-sayim.js */
         { k: 'uretim_yazma', m: 'M4', ad: 'Üretim yazma (dokuma)', hazir: true, yeni: false },   /* yapiUretimDene */
         { k: 'depo', m: 'M5', ad: 'Depo ve sevk yazma (ekleme)', hazir: true, yeni: false },   /* yapiDepoDene */
-        { k: 'fason', m: 'M6', ad: 'Fason ve terbiye', hazir: false },
+        { k: 'fason', m: 'M6', ad: 'Fason ve terbiye', hazir: true, yeni: false },   /* yapiFasonOkuKiyas + yapiFasonDene (21.10) */
         { k: 'recete', m: 'M7', ad: 'Ürün ağacı ve kumaş planı', hazir: false },
         { k: 'iplik', m: 'M8', ad: 'İplik', hazir: false },
         { k: 'stok_kart', m: 'M9', ad: 'Stok kartları', hazir: false },
@@ -1345,6 +1347,137 @@ function yapiDepoDuzeltDeneSonuc(g, r, durum) {
     });
 }
 
+/* ═══ M6 FASON / TERBİYE · OKUMA KIYASI + YAZMA DENEMESİ (karşılaştırma aşaması, 21.10.2026) ════════════════════════════
+   SQL: supabase/yapi-adim/14-fason-yaz (v_fason_akis, erp_fason_yaz; deneme: yaz + denetle + geri al). Anahtar 'fason' KARSILASTIR'dayken:
+   - OKUMA: 12 fasonAkisYukle bugünkü gibi siparis_akis'ten okur; en çok 10 dk'da bir v_fason_akis de okunur, olay olay kıyaslanır
+     (id; zaman / işlem / sipariş / kalem_ad / miktar / notlar — JSON anahtarları sıralanarak; iki okuma arasında yazılan olmasın diye son
+     60 sn'nin olayları atlanır). Fark: 'oku|eksik|<id>' (yeni yerde yok), 'oku|fazla|<id>' (eski yerde yok), 'oku|icerik|<id>'.
+     Görünüm kurulu değilse oturumda bir daha okunmaz.
+   - YAZMA: olay yazan yerler yazmadan önce aynı olayları (+ varsa depo ters kayıtlarını) erp_fason_yaz'a DENEME olarak sorar (≤1,5 sn):
+     olay + depo birlikte yazan yollar (12 fasonHareketKaydet / Duzelt / Sil, 20 fasonAgacTopluHareketYaz, 23 terbiyeHareketYaz) TEK
+     denemede; diğerleri (föy, iş, kapama, Dokuma Depo yan etkisi) 12 fasonOlayYaz içinde. Ret → fark 'yaz|<neden>|<anahtar>|<ayrıntı>'
+     (eski 1 / yeni 0); geç gelen cevap fark sayılmaz (program yazmış olur: kapı kimliği "tekrar" görür); kapı kurulu değilse oturumda
+     bir daha sorulmaz. Programın yazımı DEĞİŞMEZ. Ölçüm _yapiFason.sayac. */
+var _yapiFason = { kiyasZaman: 0, kiyasMs: 10 * 60000, tazeMs: 60000, gorunumYok: false, kapiYok: false,
+    sayac: { kiyas: 0, istek: 0, fark: 0, hata: 0, gec: 0 } };
+
+function yapiFasonKiyasAcikMi() { return yapiKarsilastirMi('fason') && !_yapiFason.gorunumYok; }
+function yapiFasonDeneAcikMi() { return yapiKarsilastirMi('fason') && !_yapiFason.kapiYok; }
+
+/** JSON değerinin anahtarları sıralı metni (jsonb anahtar sırasını değiştirir; kıyas sıradan bağımsız). */
+function yapiFasonKanon(v) {
+    return JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x))
+        ? Object.keys(x).sort().reduce((o, z) => { o[z] = x[z]; return o; }, {}) : x);
+}
+function yapiFasonNot(x) {
+    if (x && typeof x === 'object') return x;
+    try { return JSON.parse(x || '{}'); } catch (e) { return String(x || ''); }
+}
+/** İki olay satırı aynı mı (eski: siparis_akis satırı, n = çözülmüş notlar varsa o; yeni: v_fason_akis satırı). */
+function yapiFasonAyni(a, b) {
+    return String(a.islem || '') === String(b.islem || '') && String(a.siparis_id ?? '') === String(b.siparis_id ?? '')
+        && String(a.kalem_ad ?? '') === String(b.kalem_ad ?? '') && yapiSayi(a.miktar) === yapiSayi(b.miktar)
+        && Date.parse(a.created_at || '') === Date.parse(b.created_at || '')
+        && yapiFasonKanon(a.n && typeof a.n === 'object' ? a.n : yapiFasonNot(a.notlar)) === yapiFasonKanon(yapiFasonNot(b.notlar));
+}
+
+/** M6a okuma kıyası: eskiSatirlar = fasonAkisYukle'nin siparis_akis'ten okuduğu satırlar. En çok 10 dk'da bir; hiç fırlatmaz.
+    Döner: { eski, yeni, fark } ya da null (kapalı / zamanı gelmedi / okunamadı). */
+async function yapiFasonOkuKiyas(eskiSatirlar) {
+    if (!yapiFasonKiyasAcikMi() || !Array.isArray(eskiSatirlar)) return null;
+    if (Date.now() - _yapiFason.kiyasZaman < _yapiFason.kiyasMs) return null;
+    const c = yapiSb();
+    if (!c || typeof c.from !== 'function') return null;
+    _yapiFason.kiyasZaman = Date.now();
+    const bas = Date.now();
+    let yeni = [];
+    try {
+        for (let off = 0; ; off += 1000) {
+            const { data, error } = await c.from('v_fason_akis').select('id,created_at,siparis_id,islem,kalem_ad,miktar,notlar')
+                .order('id').range(off, off + 999);
+            if (error) { if (yapiRpcYokMu(error)) _yapiFason.gorunumYok = true; else _yapiFason.sayac.hata++; return null; }
+            (data || []).forEach((r) => yeni.push(r));
+            if (!data || data.length < 1000) break;
+        }
+    } catch (e) {
+        _yapiFason.sayac.hata++;
+        return null;
+    }
+    _yapiFason.sayac.kiyas++;
+    const sinir = bas - _yapiFason.tazeMs;
+    const taze = (r) => !(Date.parse(r.created_at || '') <= sinir);
+    const em = new Map(eskiSatirlar.filter((r) => r && r.id != null && !r._yerel).map((r) => [String(r.id), r]));
+    const ym = new Map(yeni.map((r) => [String(r.id), r]));
+    const farklar = [];
+    em.forEach((r, id) => {
+        if (taze(r)) return;
+        const y = ym.get(id);
+        if (!y) farklar.push(['eksik', id, r]);
+        else if (!yapiFasonAyni(r, y)) farklar.push(['icerik', id, r]);
+    });
+    ym.forEach((y, id) => { if (!taze(y) && !em.has(id)) farklar.push(['fazla', id, y]); });
+    farklar.forEach(([tur, id, x]) => {
+        _yapiFason.sayac.fark++;
+        const n = x.n && typeof x.n === 'object' ? x.n : yapiFasonNot(x.notlar);
+        yapiFarkBildir('fason', ['oku', tur, id].join('|'), tur === 'fazla' ? 0 : 1, tur === 'eksik' ? 0 : (tur === 'fazla' ? 1 : 2), {
+            siparis_id: x.siparis_id != null && x.siparis_id !== '' ? String(x.siparis_id) : null, kalem_idx: null,
+            ayrinti: { islem: 'oku', tur, id, olay: x.islem || '', anahtar: (n && n.anahtar) || '', tip: (n && n.tip) || '', zaman: x.created_at || '' }
+        });
+    });
+    return { eski: em.size, yeni: ym.size, fark: farklar.length };
+}
+
+/** M6b yazma denemesi: olaylar = [{ islem, siparis_id, kalem_ad, miktar, notlar (nesne ya da metin) }], depo = [{ tablo, satir, olay? }]
+    (programın yazacağının aynısı). Hiç fırlatmaz; programın yazımını değiştirmez. */
+function yapiFasonDene(olaylar, depo) {
+    if (!yapiFasonDeneAcikMi() || !Array.isArray(olaylar) || !olaylar.length) return Promise.resolve(null);
+    let g;
+    try {
+        g = { gid: 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10),
+            program: String((_yapi.ortam && _yapi.ortam.platform) || ''), deneme: true,
+            olaylar: JSON.parse(JSON.stringify(olaylar.map((o) => Object.assign({}, o, { notlar: yapiFasonNot(o.notlar) })))),
+            depo: JSON.parse(JSON.stringify(Array.isArray(depo) ? depo : [])) };
+    } catch (e) {
+        return Promise.resolve(null);
+    }
+    const durum = { gec: false };
+    _yapiFason.sayac.istek++;
+    const p = yapiRpc('erp_fason_yaz', { p_istek: g })
+        .then((r) => { try { yapiFasonDeneSonuc(g, r, durum); } catch (e) {} return r; }, () => null);
+    p.durum = durum;
+    return p;
+}
+
+/** Yazımdan hemen önce: kapıya sorar, en çok ms (varsayılan 1,5 sn) bekler. Kapalıysa beklemeden döner. */
+async function yapiFasonDeneBekle(olaylar, depo, ms) {
+    const p = yapiFasonDene(olaylar, depo);
+    if (!p.durum) return null;
+    const s = await Promise.race([p, new Promise((r) => setTimeout(() => r('__zaman'), ms != null ? ms : 1500))]);
+    if (s === '__zaman') { p.durum.gec = true; return null; }
+    return s;
+}
+
+function yapiFasonDeneSonuc(g, r, durum) {
+    if (!r) return;
+    if (r.err === 'kurulu_degil') { _yapiFason.kapiYok = true; return; }
+    if (['ag', 'baglanti', 'oturum', 'cevap'].includes(r.err)) { _yapiFason.sayac.hata++; return; }
+    if (r.ok) return;
+    if (durum && durum.gec) { _yapiFason.sayac.gec++; return; }
+    _yapiFason.sayac.fark++;
+    const neden = String(r.err || 'bilinmiyor');
+    const x = (Number.isInteger(r.olay) && g.olaylar[r.olay]) || g.olaylar[0] || {};
+    const n = x.notlar || {};
+    const anahtar = String(n.anahtar || (Array.isArray(n.coklu) && n.coklu[0] && n.coklu[0].anahtar) || '');
+    const ayr = String(r.neden || r.alan || r.tip || r.fgid || r.hedef || (r.depo != null ? 'depo ' + r.depo : '') || n.tip || n.bolum || '').slice(0, 60);
+    yapiFarkBildir('fason', ['yaz', neden, anahtar, ayr].join('|'), 1, 0, {
+        siparis_id: x.siparis_id != null && x.siparis_id !== '' ? String(x.siparis_id) : null, kalem_idx: null,
+        ayrinti: { islem: 'yaz', neden, program: g.program, gid: g.gid, olay_sayisi: g.olaylar.length, depo_sayisi: g.depo.length,
+            olay_no: Number.isInteger(r.olay) ? r.olay : null, depo_no: Number.isInteger(r.depo) ? r.depo : null,
+            olay: x.islem || '', tip: n.tip || '', anahtar, ayrinti: r.neden || '', alan: r.alan || '', detay: r.detay || '',
+            olaylar: g.olaylar.map((y) => (y.islem || '') + ':' + ((y.notlar && (y.notlar.tip || y.notlar.bolum)) || '')) }
+    });
+}
+
 /* ═══ KARŞILAŞTIRMA OKUYUCUSU — M1 sevk · M2 üretim (16–17.10.2026) ════════════════════════════════════════════════
    Ekranın gösterdiği (eski) sayıyı yeni yapıdaki sayıyla kıyaslar; ekrana dokunmaz. Modüller (yapiOkuTanimi):
      sevk   M1 · v_kalem_sevk: kaleme açıkça bağlı depo hareketi + DEVIR satırı (4-depo-sevk/5-sevk-devir.sql). Alan: sevk.
@@ -1367,9 +1500,11 @@ function yapiDepoDuzeltDeneSonuc(g, r, durum) {
      yeniden istenir (ortam.<modül>Eski); ikisi de aynı farkı veriyorsa yapiFarkBildir(modül, anahtar, eski, yeni,
      { siparis_id, kalem_idx, ayrinti }) — anahtar 'sevk|<sipariş>|<kalem>' / 'uretim|<sipariş>|<kalem>|<alan>'.
      Bildirilen fark aynı kaldıkça yeniden okunmaz.
-   - YENI: ekranın yeni sayıya geçiş kodu bu sürümde yok (yapiModulleri yeni: false) → KARSILASTIR gibi çalışır.
+   - YENI: M1 sevkte ekran yeni sayıyı gösterir (aşağıda "M1 · EKRAN GEÇİŞİ"); M2'de geçiş kodu yok (yeni: false) →
+     KARSILASTIR gibi çalışır.
    Ortam (yapiKur): <modül>Eski(sid, ki) → gösterilen şu an (sevk: sayı · uretim: { alan: sayı }; bilinemiyorsa null),
-   <modül>Ayrinti(sid, ki) → eski sayının kaynakları (yalnız bildirilen farkta), siparisBilgi(sid) → { kapali, kapanis (ms) }.
+   <modül>Ayrinti(sid, ki) → eski sayının kaynakları (yalnız bildirilen farkta), siparisBilgi(sid) → { kapali, kapanis (ms) },
+   yeniGeldi(modül, sipariş id'leri) → YENI'de yeni sayılar okununca / değişince ekranı yeniden çiz.
    Ölçüm sayaçları _yapiOku.m.<modül>.olcum (istek / satır). */
 var _yapiOku = { gecerliMs: 10 * 60000, onayMs: 2 * 60000, parca: 150, bekleme: 2000, arsivGun: 90, hal: new Map(), hesapta: false, m: {} };
 
@@ -1491,8 +1626,17 @@ async function yapiOkuSiraOku(modul) {
     const sids = [...d.sira];
     d.sira.clear();
     if (!sids.length) return;
-    if (!yapiKarsilastirMi(modul)) { d.bek.clear(); return; }
+    const yeniMod = yapiYeniMi(modul);
+    if (!yeniMod && !yapiKarsilastirMi(modul)) { d.bek.clear(); return; }
+    const once = yeniMod ? new Map(sids.map((x) => [x, yapiYeniImza(modul, d.sip.get(x))])) : null;
     const okunan = await yapiOkuSiparisler(modul, sids, false);
+    if (yeniMod) {
+        /* YENI: kıyas yok; ilk kez okunan ya da sayısı değişen siparişler için ekran yeniden çizilir */
+        d.bek.clear();
+        const degisen = sids.filter((x) => okunan.has(x) && yapiYeniImza(modul, d.sip.get(x)) !== once.get(x));
+        if (degisen.length) yapiYeniHaber(modul, degisen);
+        return;
+    }
     const bu = new Set(sids);
     d.bek.forEach((e, key) => {
         const [sid, kis, alan] = key.split('|');
@@ -1545,6 +1689,91 @@ async function yapiOkuSiparisler(modul, sids, ayrintili) {
         }
     }
     return okunan;
+}
+
+/* ═══ M1 · EKRAN GEÇİŞİ (anahtar YENI, 21.10.2026) ═══════════════════════════════════════════════════════════════════
+   Anahtar 'sevk' YENI'yken (ve bu sürümde yeni: true) ekran kalemin sevkini yeni yapıdan (v_kalem_sevk) gösterir; kıyas ve
+   fark bildirimi durur. Sayılar okuyucunun önbelleğinden gelir (yukarıdaki okuma: 150 sipariş tek istek; açık 10 dk, kapalı /
+   arşiv oturumda bir kez). Hiç okunmamış siparişte yapiYeniSayi null döner → platform o an eski hesabı gösterir, sipariş
+   150 ms içinde okunur ve ortam.yeniGeldi ekranı yeniden çizer. Depo değişince (bu programın ya da başkasının yazması)
+   platform yapiYeniTazele der: sipariş bayatlar, son okunan gösterilmeye devam eder, arka planda yeniden okunur. Sayı YAZAN
+   yollar (Yüklenen + / düzelt) yazmadan önce yapiYeniTazeOku ile taze okur. Geri dönüş: anahtar KARSILASTIR / ESKI. */
+var _yapiYeni = { bekleme: 150 };
+
+/** YENI'de ekranda gösterilecek yeni sayı: okunmuşsa sayı (bayat / süresi dolmuşsa arka planda tazelenir), hiç okunmamışsa
+    ya da kalem yeni yapıda yoksa null (çağıran eski hesabı gösterir). YENI değilse null. */
+function yapiYeniSayi(modul, siparisId, kalemIdx, alan) {
+    if (!yapiYeniMi(modul)) return null;
+    try {
+        const sid = String(siparisId == null ? '' : siparisId).trim();
+        const ki = parseInt(kalemIdx, 10);
+        if (!/^[0-9]{1,18}$/.test(sid) || !(ki >= 0)) return null;
+        const d = yapiOkuDurum(modul);
+        const s = d.sip.get(sid);
+        if (!s || s.bayat || !yapiOkuTazeMi(sid, s)) yapiYeniSiraya(modul, [sid], false);
+        if (!s) return null;
+        const k = s.kalem.get(ki);
+        return k && typeof k[alan] === 'number' ? k[alan] : null;
+    } catch (e) {
+        return null;
+    }
+}
+/** Ekranda gösterilecek sevk (M1): anahtar YENI'yken yeni sayı, değilse / okunmamışsa null. */
+function yapiSevkGoster(siparisId, kalemIdx) { return yapiYeniSayi('sevk', siparisId, kalemIdx, 'sevk'); }
+
+/** Siparişleri okuma sırasına al (YENI'de kısa bekleme). uctaDa: okunmakta olsa bile yeniden oku (okuma sürerken gelen değişiklik). */
+function yapiYeniSiraya(modul, sids, uctaDa) {
+    const d = yapiOkuDurum(modul);
+    let eklendi = false;
+    sids.forEach((x) => { if (uctaDa || !d.ucus.has(x)) { d.sira.add(x); eklendi = true; } });
+    if (eklendi && !d.siraZ) d.siraZ = setTimeout(() => yapiOkuSiraOku(modul), _yapiYeni.bekleme);
+}
+
+/** Depo değişti (YENI'de): verilen siparişler (null = önbellekteki açık siparişler) bayatlar ve yeniden okunur; okunmamış
+    sipariş için bir şey yapılmaz (gösterilince okunur). */
+function yapiYeniTazele(modul, sids) {
+    if (!yapiYeniMi(modul)) return;
+    const d = yapiOkuDurum(modul);
+    const liste = (sids == null ? [...d.sip.keys()].filter((x) => yapiSiparisHaliOku(x) === 'ACIK')
+        : sids.map((x) => String(x))).filter((x) => d.sip.has(x));
+    liste.forEach((x) => { d.sip.get(x).bayat = true; });
+    if (liste.length) yapiYeniSiraya(modul, liste, true);
+}
+
+/** Verilen siparişleri önceden okut (YENI'de; önbellekte olmayanlar) — ekran açılırken eski sayının bir an görünmemesi için. */
+function yapiYeniOnYukle(modul, sids) {
+    if (!yapiYeniMi(modul) || !Array.isArray(sids)) return;
+    const d = yapiOkuDurum(modul);
+    const liste = sids.map((x) => String(x)).filter((x) => /^[0-9]{1,18}$/.test(x) && !d.sip.has(x));
+    if (liste.length) yapiYeniSiraya(modul, liste, false);
+}
+
+/** Yazmadan önce taze okuma (YENI'de): sipariş hemen okunur, kalemin sayısı döner; okunamazsa / kalem yoksa / YENI değilse null. */
+async function yapiYeniTazeOku(modul, siparisId, kalemIdx, alan) {
+    if (!yapiYeniMi(modul)) return null;
+    const sid = String(siparisId == null ? '' : siparisId).trim();
+    const ki = parseInt(kalemIdx, 10);
+    if (!/^[0-9]{1,18}$/.test(sid) || !(ki >= 0)) return null;
+    const d = yapiOkuDurum(modul);
+    const once = yapiYeniImza(modul, d.sip.get(sid));
+    const okunan = await yapiOkuSiparisler(modul, [sid], false);
+    if (!okunan.has(sid)) return null;
+    const s = d.sip.get(sid);
+    if (yapiYeniImza(modul, s) !== once) yapiYeniHaber(modul, [sid]);
+    const k = s && s.kalem.get(ki);
+    return k && typeof k[alan] === 'number' ? k[alan] : null;
+}
+
+/** Siparişin okunmuş sayılarının imzası (değişti mi). */
+function yapiYeniImza(modul, s) {
+    if (!s) return '';
+    const t = yapiOkuTanimi(modul);
+    return [...s.kalem.entries()].map(([i, k]) => i + ':' + t.alanlar.map((a) => k[a]).join(',')).join(';');
+}
+
+function yapiYeniHaber(modul, sids) {
+    const f = _yapi.ortam && _yapi.ortam.yeniGeldi;
+    if (typeof f === 'function') { try { f(modul, sids); } catch (e) {} }
 }
 
 /** Bir alanda gösterilen sayı (e) ile okunmuş yeni sayıyı kıyaslar. Tutmazsa aday; aday ayrı ve en az onayMs sonraki
@@ -3275,6 +3504,8 @@ async function gkGeriAl(btn,siparisId,kalemIdx,gid){
 /* ── Girişler sekmesi ────────────────────────────────────────────── */
 let _vgCache=null;
 let _vgKd=null,_vgKurBekliyor=false,_vgOkuBekliyor=false;   /* ham kaplar + kendiliğinden tazeleme bayrakları */
+const VG_LIMIT_ADIM=80;
+let _vgArama='',_vgLimit=VG_LIMIT_ADIM,_vgAramaZaman=null;   /* arama kutusu (21.10.2026): bütün girişlerde arar, ekranda süzer */
 
 /** Girişin nereden yapıldığı (liste satırında yazar). */
 function girisKaynakAdi(g){
@@ -3313,8 +3544,8 @@ async function vgKdOku(){
   }
   return kdMap;
 }
-/** Haritadan liste satırları (en yeni 80). _vgCache'i çağıran atar: ekrandaki listeyle AYNI anda değişmeli
-    (Düzenle formu satırı _vgCache'te arar). */
+/** Haritadan liste satırları (HEPSİ, en yeni üstte; ekran 80'er gösterir, arama hepsinde). _vgCache'i çağıran atar:
+    ekrandaki listeyle AYNI anda değişmeli (Düzenle formu satırı _vgCache'te arar). */
 async function vgListeKur(){
   const satirlar=[];
   (_vgKd||new Map()).forEach((kd,sid)=>{
@@ -3342,16 +3573,18 @@ async function vgListeKur(){
           tarih:g.tarih||(gt?gt.toLocaleString('tr-TR'):''),ts:gt?gt.getTime():0,
           user:g.user||g.kullanici||'',gid:panelden?g.gid:('x-'+sid+'-'+ki+'-'+gi),
           salt:!panelden,kaynakAd:girisKaynakAdi(g),
-          gecmis:Array.isArray(g.gecmis)?g.gecmis:[]
+          gecmis:Array.isArray(g.gecmis)?g.gecmis:[],
+          araEk:[k.kod,k.desen,k.renk,k.ebat].filter(Boolean).join(' ')
         });
       });
     });
   });
   satirlar.sort((a,b)=>b.ts-a.ts);
-  /* Kumaş girişleri kumaşın ADIYLA: yalnız bu siparişlerin ürün ağacı okunur */
-  const kumasSid=[...new Set(satirlar.slice(0,80).filter(r=>r.kumas).map(r=>String(r.siparisId)))];
+  /* Kumaş girişleri kumaşın ADIYLA: yalnız bu siparişlerin ürün ağacı okunur (önbellekli; aramada da adıyla bulunsun) */
+  const kumasSid=[...new Set(satirlar.filter(r=>r.kumas).map(r=>String(r.siparisId)))];
   if(kumasSid.length){
-    try{await getKdBatch(kumasSid,'KD_URUN_AGACI');}catch(e){console.warn('girisler urun agaci',e);}
+    try{for(let i=0;i<kumasSid.length;i+=60)await getKdBatch(kumasSid.slice(i,i+60),'KD_URUN_AGACI');}
+    catch(e){console.warn('girisler urun agaci',e);}
     satirlar.forEach(r=>{
       if(!r.kumas)return;
       const sip=siparisler.find(x=>String(x.id)===String(r.siparisId));
@@ -3359,7 +3592,8 @@ async function vgListeKur(){
       if(kum)r.etiket=kum.ad+' (ham)';
     });
   }
-  return satirlar.slice(0,80);
+  satirlar.forEach(r=>{r.ara=normText([r.sno,r.firma,r.etiket,r.araEk,r.user,r.kaynakAd,r.tarih].join(' '));});
+  return satirlar;
 }
 
 async function veriGirisleriRender(force){
@@ -3375,15 +3609,23 @@ async function veriGirisleriRender(force){
   }
   vgListeCiz();
 }
+function vgAramaDegisti(v){
+  clearTimeout(_vgAramaZaman);
+  _vgAramaZaman=setTimeout(()=>{_vgArama=String(v||'');_vgLimit=VG_LIMIT_ADIM;vgListeCiz();},250);
+}
 function vgListeCiz(){
   const host=document.getElementById('vg-liste-area');
   if(!host)return;
-  const liste=_vgCache||[];
+  const parcalar=normText(_vgArama).split(' ').filter(Boolean);
+  const liste=parcalar.length?(_vgCache||[]).filter(r=>parcalar.every(p=>(r.ara||'').includes(p))):(_vgCache||[]);
   if(!liste.length){
-    host.innerHTML=`<div class="empty"><div class="icon">📭</div>Henüz dokuma girişi yok.</div>`;
+    host.innerHTML=`<div class="empty"><div class="icon">📭</div>${parcalar.length?'Aramaya uyan giriş yok.':'Henüz dokuma girişi yok.'}</div>`;
     return;
   }
-  host.innerHTML=liste.map(vgSatirHtml).join('');
+  const kalan=liste.length-_vgLimit;
+  host.innerHTML=(parcalar.length?`<div style="font-size:11px;color:var(--text3);margin:2px 2px 8px">🔍 <strong style="color:var(--text2)">${liste.length}</strong> giriş bulundu</div>`:'')
+    +liste.slice(0,_vgLimit).map(vgSatirHtml).join('')
+    +(kalan>0?`<button type="button" class="dd-daha" onclick="_vgLimit+=VG_LIMIT_ADIM;vgListeCiz()">${kalan} giriş daha göster</button>`:'');
 }
 
 /** Kaydın kim tarafından girildiği + sonradan kim neyi değiştirdiği. */
@@ -3519,7 +3761,7 @@ async function vgSil(btn,gid){
     _vgCache=(_vgCache||[]).filter(x=>x.gid!==gid);
     const el=document.getElementById('vg-'+gid);
     if(el)el.remove();
-    if(!(_vgCache||[]).length)veriGirisleriRender();
+    if(!document.querySelector('#vg-liste-area .vg-item'))vgListeCiz();   /* ekranda (aramada) satır kalmadıysa */
     showToast('🗑 Kayıt silindi',2200);
   }catch(e){
     showToast('❌ Silinemedi: '+(e.message||e),3600);
@@ -4744,8 +4986,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261021-4a943857';
-const PANEL_ZAMAN=1792530242;
+const PANEL_SURUM='20261021-a3582ff0';
+const PANEL_ZAMAN=1792586594;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
