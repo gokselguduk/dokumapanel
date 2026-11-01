@@ -1045,7 +1045,7 @@ function ortakKesimOnuKumasKalemleri(plan, ki) {
    Modülün kodu geldiğinde: yapiModulleri'nde hazir: true + yapiOkuyucuSurum bir artar (dört programda birlikte).
    Modüller: M1 sevk okuma + M2 üretim okuma (aşağıda, "KARŞILAŞTIRMA OKUYUCUSU"); M3 stok sayımı yazma (assets/stok-sayim.js,
    anahtar YENI'de yazma kapısı erp_sayim_yaz, KARSILASTIR'da arşiv iki yerden); M4 üretim yazma (dokuma; KARSILASTIR'da kapıya
-   yazmadan sorulur — aşağıda "M4 ÜRETİM YAZMA · DENEME"; yeni yazım kodu henüz yok, yeni: false); M5b depo yazma (ekleme;
+   yazmadan sorulur — aşağıda "M4 ÜRETİM YAZMA · DENEME"; YENI'de kapıdan gerçek yazım, 01.11 — "M4 · EKRAN GEÇİŞİ"); M5b depo yazma (ekleme;
    KARSILASTIR'da kapıya aynı satırlarla deneme — aşağıda "M5b DEPO YAZMA · DENEME"; yeni: false). */
 
 var _yapi = { ortam: null, ayar: null, ayarZaman: 0, ayarYok: false, ayarYokZaman: 0, ayarYukleniyor: null, fark: [], farkGorulen: new Set(),
@@ -1053,22 +1053,22 @@ var _yapi = { ortam: null, ayar: null, ayarZaman: 0, ayarYok: false, ayarYokZama
 
 /** Bu okuyucunun sürümü. Bir modülün okuma / yazma kodu değişince artar; eşitleme kapatılmadan önce cihaz listesinde
     bütün cihazların bu sayıya ulaştığına bakılır. */
-function yapiOkuyucuSurum() { return 17; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) · 5: M4 üretim yazma karşılaştırması (17.10 gece) · 6: M5b depo yazma karşılaştırması (18.10) · 7: Dokuma Depo sevki tek işlem denemesi (M5b 2, 21.10) · 8: depo düzeltme / geri alma denemesi (M5c, 21.10) + M1 ekran geçişi (YENI'de ekran yeni sevki gösterir, 21.10) + M6 fason okuma kıyası / yazma denemesi (21.10) · 9: M7a ürün ağacı okuma kıyası (22.10 gece) · 10: M7b ürün ağacı yazma denemesi (22.10 gece) · 11: M8a iplik okuma kıyası (26.10) · 12: M8b iplik yazma denemesi (28.10) · 13: M8c iplik ekran geçişi (YENI: okuma görünümden, yazma kapıdan; 28.10) · 14: M6 fason ekran geçişi (YENI: okuma v_fason_akis'ten, yazma erp_fason_yaz'dan; 30.10) · 15: M7c ürün ağacı ekran geçişi (YENI: okuma v_urun_agaci_kap'tan, yazma erp_recete_yaz'dan; 30.10) · 16: M8d iplik kapanışı (ham kayıt düzenleyicide iplik yalnız gösterilir, Yapı geçişi penceresi kapanan modülü kilitler; SQL 23 bütün cihazlar ≥16 olmadan kurulmaz; 31.10) · 17: M9a stok kartı okuma kıyası (31.10) */
+function yapiOkuyucuSurum() { return 21; }   /* 2: M1 sevk (16.10 gece) · 3: M2 üretim + ortak okuyucu (17.10) · 4: M3 sayım yazma kapısı (17.10) · 5: M4 üretim yazma karşılaştırması (17.10 gece) · 6: M5b depo yazma karşılaştırması (18.10) · 7: Dokuma Depo sevki tek işlem denemesi (M5b 2, 21.10) · 8: depo düzeltme / geri alma denemesi (M5c, 21.10) + M1 ekran geçişi (YENI'de ekran yeni sevki gösterir, 21.10) + M6 fason okuma kıyası / yazma denemesi (21.10) · 9: M7a ürün ağacı okuma kıyası (22.10 gece) · 10: M7b ürün ağacı yazma denemesi (22.10 gece) · 11: M8a iplik okuma kıyası (26.10) · 12: M8b iplik yazma denemesi (28.10) · 13: M8c iplik ekran geçişi (YENI: okuma görünümden, yazma kapıdan; 28.10) · 14: M6 fason ekran geçişi (YENI: okuma v_fason_akis'ten, yazma erp_fason_yaz'dan; 30.10) · 15: M7c ürün ağacı ekran geçişi (YENI: okuma v_urun_agaci_kap'tan, yazma erp_recete_yaz'dan; 30.10) · 16: M8d iplik kapanışı (ham kayıt düzenleyicide iplik yalnız gösterilir, Yapı geçişi penceresi kapanan modülü kilitler; SQL 23 bütün cihazlar ≥16 olmadan kurulmaz; 31.10) · 17: M9a stok kartı okuma kıyası (31.10) · 18: M9b stok kartı yazma denemesi + düzenleme kilidi (31.10) · 19: M10 işlem izi (Günlük İşlemler / kişinin günü tek görünümden: kıyas + ekran geçişi, 31.10) · 20: M2 üretim ekran geçişi (YENI'de kalem sayıları kalem_durum'dan; kendi yazmasından sonra yeni okunana kadar yerel hesap, 01.11) · 21: M4 dokuma yazma ekran geçişi (YENI'de dokuma topu erp_uretim_yaz / erp_uretim_duzelt'ten gerçek yazılır, 01.11) */
 
 /** Geçiş modülleri (plan sırası). hazir: bu sürümde modülün karşılaştırma / yeni okuma kodu var mı.
     yeni: ekranın yeni sayıya geçiş kodu var mı — yoksa anahtar YENI'ye çevrilse de modül KARSILASTIR çalışır. */
 function yapiModulleri() {
     return [
         { k: 'sevk', m: 'M1', ad: 'Sevk okuma', hazir: true, yeni: true },   /* ekran geçişi: yapiSevkGoster (21.10) */
-        { k: 'uretim', m: 'M2', ad: 'Üretim sayıları okuma', hazir: true, yeni: false },
+        { k: 'uretim', m: 'M2', ad: 'Üretim sayıları okuma', hazir: true, yeni: true },   /* ekran geçişi: yapiUretimGoster (01.11) */
         { k: 'stok_sayim', m: 'M3', ad: 'Stok sayımı (pilot yazma)', hazir: true, yeni: true },   /* assets/stok-sayim.js */
-        { k: 'uretim_yazma', m: 'M4', ad: 'Üretim yazma (dokuma)', hazir: true, yeni: false },   /* yapiUretimDene */
+        { k: 'uretim_yazma', m: 'M4', ad: 'Üretim yazma (dokuma)', hazir: true, yeni: true },   /* yapiUretimDene · ekran geçişi yapiUretimYaz (01.11) */
         { k: 'depo', m: 'M5', ad: 'Depo ve sevk yazma (ekleme)', hazir: true, yeni: false },   /* yapiDepoDene */
         { k: 'fason', m: 'M6', ad: 'Fason ve terbiye', hazir: true, yeni: true },   /* yapiFasonOkuKiyas + yapiFasonDene (21.10) · ekran geçişi yapiFasonYaz / yapiFasonOkumaKaynagi (30.10) */
         { k: 'recete', m: 'M7', ad: 'Ürün ağacı ve kumaş planı', hazir: true, yeni: true },   /* yapiReceteKiyasEkle (M7a, 22.10 gece) · ekran geçişi yapiReceteYeniKaplar / yapiReceteYaz (M7c, 30.10) */
         { k: 'iplik', m: 'M8', ad: 'İplik', hazir: true, yeni: true },   /* yapiIplikOkuKiyas (M8a, 26.10) · yapiIplikDene (M8b) · ekran geçişi yapiIplikYaz / yapiIplikOkumaKaynagi (M8c, 28.10) */
-        { k: 'stok_kart', m: 'M9', ad: 'Stok kartları', hazir: true, yeni: false },   /* yapiKartOkuKiyas (M9a, 31.10) */
-        { k: 'islem_izi', m: 'M10', ad: 'İşlem izi ve günlük', hazir: false }
+        { k: 'stok_kart', m: 'M9', ad: 'Stok kartları', hazir: true, yeni: false },   /* yapiKartOkuKiyas (M9a, 31.10) · yapiKartDene (M9b, 31.10) */
+        { k: 'islem_izi', m: 'M10', ad: 'İşlem izi ve günlük', hazir: true, yeni: true }   /* 44 islemIziKiyas + ekran geçişi islemIziOku (M10, 31.10) */
     ];
 }
 function yapiModul(k) {
@@ -1264,7 +1264,7 @@ async function yapiRpc(ad, govde, tablolar) {
    önce eski yeri okursa gid'i görüp "zaten yazıldı" der, sahte ikiz çıkmaz). Düzeltme / silmede kısa beklenir (≤ 1,5 sn), yoksa
    kapı değişmiş topu okurdu. Kapı reddederdi ya da bir alanı atardı → fark defteri: anahtar '<yaz|duzelt>|<neden>|<sipariş>|<kalem>',
    eski 1 (program yazdı) / yeni 0 (kapı reddederdi) · 2 (kabul ama alan atardı), ayrıntıda neden ve miktar. Ağ hatası / oturum fark
-   sayılmaz; kapı kurulu değilse bu oturumda bir daha sorulmaz. ESKI / YENI'de hiç istek yok. Bağlantı yerleri: ana program 05
+   sayılmaz; kapı kurulu değilse bu oturumda bir daha sorulmaz. ESKI / YENI'de deneme yok (YENI'de gerçek yazım — aşağıda "M4 · EKRAN GEÇİŞİ"). Bağlantı yerleri: ana program 05
    dtKaydetKalemler / tpDokumaGirisiYaz / dtGirisSil / dtGirisRevizePrompt · Dokuma Panel dokumaGirisEkle / dokumaGirisGuncelle /
    dokumaGirisSil. Ölçüm _yapiUretim.sayac (istek / fark / hata). */
 var _yapiUretim = { kapiYok: false, sayac: { istek: 0, fark: 0, hata: 0 } };
@@ -1295,6 +1295,97 @@ function yapiUretimDeneSonuc(islem, g, r) {
             islem_turu: g.islem || '', istenen: r.istenen || '', atilan: r.atilan || null, giren: r.giren || '',
             ikiz: Array.isArray(r.ikizler) ? r.ikizler.length : 0 }
     });
+}
+
+/* ═══ M4 · EKRAN GEÇİŞİ — dokuma topu kapıdan GERÇEK yazılır (anahtar 'uretim_yazma' YENI, 01.11.2026) ═══════════════
+   Anahtar YENI'yken (ve bu sürümde yeni: true) dokuma topu (yeni / düzeltme / silme) programlarda eski yere DOĞRUDAN yazılmaz;
+   tek kapı (erp_uretim_yaz / erp_uretim_duzelt) tek işlemde defter satırını + eski yeri (KD_DOKUMA girisler[] / toplam_*) + düzeltme
+   / silmede denetim satırını (DOKUMA_DUZENLE / DOKUMA_SIL) yazar. Kural tek yerde: kişi oturumdan, yetki (dokuma ekranı; düzeltme /
+   silme yalnız topu giren kişi + yönetici), birime göre zorunlu alanlar, kalem kayması, aynı gid ikinci kez yazılmaz, ikiz uyarısı
+   (kalemin güncel girişlerinden; farklı tezgahtaki aynı ölçü top sorulmaz) — istemcideki ikiz kopyası bu yolda kullanılmaz.
+   'ikiz' cevabı ENGEL değil: platform sorar, "ayrı top" denirse ikiz_onay ile yeniden gönderir (bekleyen kuyruk {atla:'kuyruk'}).
+   Bağlantı koparsa aynı istek bir kez daha gider (gid / aynı düzeltme ikinci kez yazılmaz). Kapı kurulu değilse (kapiYok) platform
+   eski yola döner. Platform başarıdan sonra siparişin KD_DOKUMA'sını taze okur (ekran yeni topu görsün) ve üretim sayısını
+   tazeler (M2). Bağlantı yerleri: ana program 05 dtKaydetKalemler / tpDokumaGirisiYaz / dtGirisSil / dtGirisRevizePrompt ·
+   Dokuma Panel dokumaGirisEkle (+ bekleyen kuyruk) / dokumaGirisGuncelle / dokumaGirisSil. ESKI / KARSILASTIR'da hiç çağrılmaz. */
+function yapiUretimYazYeniMi() { return yapiYeniMi('uretim_yazma') && !_yapiUretim.kapiYok; }
+
+/** islem 'yaz' (govde = erp_uretim_yaz p_giris) | 'duzelt' (erp_uretim_duzelt p_istek). Döner { ok, cevap } ya da
+    { ok:false, err, hata (kullanıcıya metin), ag (bağlantı yok — tablet sıraya alır), ikizler, kapiYok }. Hiç fırlatmaz. */
+async function yapiUretimYaz(islem, govde) {
+    let g;
+    try {
+        g = Object.assign(JSON.parse(JSON.stringify(govde || {})), { deneme: false });
+    } catch (e) {
+        return { ok: false, err: 'bicim', hata: 'Kayıt hazırlanamadı.' };
+    }
+    if (!g.program && _yapi.ortam) g.program = String(_yapi.ortam.platform || '');
+    const ad = islem === 'duzelt' ? 'erp_uretim_duzelt' : 'erp_uretim_yaz';
+    const yolla = () => {
+        /* kapının yazdığı satırların canlı yankısı bu oturumun kendi yazması ("başka oturumdan" bildirimi çıkmasın) */
+        try { if (_yapi.ortam && typeof _yapi.ortam.kendiYazma === 'function') _yapi.ortam.kendiYazma('siparis_akis'); } catch (e) {}
+        return yapiRpc(ad, islem === 'duzelt' ? { p_istek: g } : { p_giris: g }, ['siparis_akis']);
+    };
+    let r = await yolla();
+    /* bağlantı koptu: kapı yazmış olabilir — aynı istek bir kez daha (aynı gid / aynı düzeltme ikinci kez yazılmaz) */
+    if (r && (r.err === 'ag' || r.err === 'baglanti') && r.kod !== 'ERP_ESKI_SURUM') r = await yolla();
+    if (r && r.err === 'kurulu_degil') { _yapiUretim.kapiYok = true; return { ok: false, err: 'kurulu_degil', kapiYok: true }; }
+    if (r && r.ok) return { ok: true, cevap: r };
+    const ag = !!(r && (r.err === 'ag' || r.err === 'baglanti') && r.kod !== 'ERP_ESKI_SURUM');
+    return { ok: false, err: (r && r.err) || 'cevap', ag, ikizler: r && Array.isArray(r.ikizler) ? r.ikizler : null,
+        hata: yapiUretimHataMetni(r), cevap: r };
+}
+
+/** YENI'de birden çok top birlikte kaydedilirken önce her birinin kabulü sorulur (deneme: yazmaz, kilitlemez, fark defterine
+    yazmaz) — biri reddedilirse hiçbiri yazılmaz, ikizler tek soruda sorulur. Döner kapının ham cevabı. */
+function yapiUretimSor(govde) {
+    const g = Object.assign({}, govde || {}, { deneme: true });
+    if (!g.program && _yapi.ortam) g.program = String(_yapi.ortam.platform || '');
+    return yapiRpc('erp_uretim_yaz', { p_giris: g });
+}
+
+/** Kapının ret cevabı → kullanıcıya gösterilecek metin. */
+function yapiUretimHataMetni(r) {
+    const e = String((r && r.err) || '');
+    const istenen = r && r.istenen ? String(r.istenen) : '';
+    const m = {
+        oturum: 'Oturum bulunamadı — çıkış yapıp yeniden giriş yapın.',
+        yetki: 'Bu işlem için dokuma yetkiniz yok.',
+        yetki_giren: 'Bu topu yalnız giren kişi' + (r && r.giren ? ' (' + r.giren + ')' : '') + ' ya da bir yönetici düzeltebilir / silebilir.',
+        bicim: 'Kayıt biçimi hatalı — sayfayı yenileyip yeniden deneyin.',
+        miktar: 'Miktar geçersiz (hepsi 0 olamaz; topu sıfırlamak için silin).',
+        tarih: 'Topun tarihi geçersiz (14 günden eski ya da cihaz saati ileri).',
+        alan_eksik: 'Eksik alan — bu kalemde istenen: ' + (istenen || 'metre') + '.',
+        kalem_yok: 'Sipariş kalemi bulunamadı.',
+        kalem_kaydi: 'Sipariş kalemleri değişmiş (sıra kaymış olabilir) — sayfayı yenileyip yeniden deneyin.',
+        cakisma: 'Bu top başka miktarla zaten yazılmış — sayfayı yenileyin.',
+        kd_okunamadi: 'Dokuma kaydı okunamadı (bozuk kayıt) — yöneticiye bildirin.',
+        kayit_degisti: 'Bu top bu arada değişmiş — sayfayı yenileyip yeniden deneyin.',
+        yok: 'Top bulunamadı — başka biri silmiş olabilir.',
+        ikiz: 'Aynı kaleme aynı top az önce girilmiş.',
+        asama_hazir_degil: 'Bu aşama henüz yeni yazma kapısında değil.',
+        ag: 'Bağlantı hatası — kayıt yapılamadı.',
+        baglanti: 'Bağlantı hatası — kayıt yapılamadı.'
+    };
+    if (r && r.kod === 'ERP_ESKI_SURUM') return String(r.mesaj || 'Program güncel değil — "Güncelle ve yenile" ile yenileyin.');
+    return m[e] || ('Kayıt yapılamadı (' + (e || 'bilinmeyen hata') + ').');
+}
+
+/** İkiz cevabının listesi → soru penceresinin satırları (programların bugünkü sorusuyla aynı bilgiler). */
+function yapiUretimIkizSatirlari(ikizler) {
+    const say = (v) => { const n = Number(v); return Number.isFinite(n) && n ? n.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) : ''; };
+    const yer = (p) => ({ DOKUMA_PANEL: 'Dokuma Panel', TEZGAH_PLANLAMA: 'Tezgah Planlama', DOKUMA_TAKIP: 'Dokuma Takip' })[p] || p || '';
+    return (ikizler || []).map((x) => {
+        let saat = '';
+        try { const t = new Date(x.zaman); if (!Number.isNaN(t.getTime())) saat = t.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+        const miktar = [say(x.metre) ? say(x.metre) + ' m' : '', say(x.kg) ? say(x.kg) + ' kg' : '', say(x.adet) ? say(x.adet) + ' ad' : ''].filter(Boolean).join(' · ');
+        return '  • ' + [saat, miktar, yer(x.program) || (String(x.gid || '').startsWith('dt-') ? 'Dokuma Takip' : ''),
+            x.tezgah_no ? 'tezgah ' + x.tezgah_no : '', x.kisi || ''].filter(Boolean).join(' · ');
+    });
+}
+/** Onaylanan ikizin izi (programların bugünkü ikiz_onaylandi biçimi). */
+function yapiUretimIkizOnay(ikizler) {
+    return { ts: new Date().toISOString(), ikiz_gid: (ikizler || []).map((x) => x.gid || x.zaman) };
 }
 
 /* ═══ M5b DEPO YAZMA · DENEME (karşılaştırma aşaması, 18.10.2026) ═════════════════════════════════════════════════
@@ -2400,6 +2491,76 @@ async function yapiKartOkuKiyas(eskiSatirlar, sutunlar) {
     return { eski: em.size, yeni: ym.size, fark: farkSay, bayat };
 }
 
+/* ═══ M9b STOK KARTI · YAZMA DENEMESİ (karşılaştırma aşaması, 31.10.2026) ═══════════════════════════════════════════════
+   SQL: supabase/yapi-adim/25-kart-yaz (erp_kart_yaz — kumas_kutuphanesi'ne yazan bütün yolların TEK kapısı; deneme: yaz + denetle + geri al;
+   aynı dosyada düzenleme kilidi erp_kart_kilit — kilit programda GERÇEK çalışır, 43-kart-kilit.js). Kararlar docs/M9-STOK-KART-TASLAK.md
+   (K4 / B2 kod kapıda, B1 kilit, B3 kullanılan kart / varyant silinmez, B4 miktar_mt atılır, K8 kişi oturumdan + iz). Anahtar 'stok_kart'
+   KARSILASTIR'dayken program BUGÜNKÜ GİBİ yazar; yazmadan önce kapıya AYNI işlemler deneme olarak sorulur (≤ 1,5 sn). Kapı reddederdi ya da
+   bir alanı atardı → fark defteri: anahtar 'yaz|<neden>|<ekran>|<kod>|<ayrıntı>', eski 1 (program yazdı) / yeni 0 (kapı reddederdi) · 2
+   (kabul ama alan atardı). Geç gelen cevapta program yazmış olur (değişmiş / yok / kod var) — fark sayılmaz. Ağ / oturum fark değil; kapı
+   kurulu değilse oturumda bir daha sorulmaz; ESKI / YENI'de istek yok. Ekranlar: KART (07 handleSave kumaş / mamül kartı ekle + düzelt,
+   numuneden karta aktar), FOTO (01 kartFotografKaydet, masaüstü + mobil), RENK (stok-kart-desktop mamulVaryantRenkAdiKaydet), KART_SIL
+   (07 deleteRecord). Tabletler kart yazmaz. Ölçüm _yapiKartYaz.sayac (istek / fark / hata / gec). */
+var _yapiKartYaz = { kapiYok: false, sayac: { istek: 0, fark: 0, hata: 0, gec: 0 } };
+
+function yapiKartDeneAcikMi() { return yapiKarsilastirMi('stok_kart') && !_yapiKartYaz.kapiYok; }
+
+/** Programın kumas_kutuphanesi'ne ekleyeceği satırlar → kapı işlemleri (önek: kod kutusu boşsa kapının vereceği kodun türü). */
+function yapiKartEkle(satirlar, mod) {
+    return (satirlar || []).filter(Boolean).map((s) => {
+        const kod = String(s.desen_kodu || s.stok_kodu || '').trim().toUpperCase();
+        const onek = mod === 'MAMUL_KART_GIRIS' || /^\d/.test(kod) ? 'MA' : (/^NU/.test(kod) ? 'NU' : 'SM');
+        return { tur: 'ekle', onek, satir: s };
+    });
+}
+
+/** ekran: KART | FOTO | RENK | KART_SIL; islemler: yapiKartEkle / yapiDuzeltIslem('guncelle' | 'sil', 'kumas_kutuphanesi', …) çıktıları;
+    ek: { neden }. Döner: kapının cevabı (ya da null). Hiç fırlatmaz; programın yazımını değiştirmez (kopya gönderilir). */
+function yapiKartDene(ekran, islemler, ek) {
+    if (!yapiKartDeneAcikMi() || !Array.isArray(islemler) || !islemler.length) return Promise.resolve(null);
+    let liste;
+    try { liste = JSON.parse(JSON.stringify(islemler)); } catch (e) { return Promise.resolve(null); }
+    const g = { gid: 'k_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10), ekran: String(ekran || ''),
+        program: String((_yapi.ortam && _yapi.ortam.platform) || ''), deneme: true, islemler: liste };
+    if (ek && ek.neden) g.neden = String(ek.neden).slice(0, 500);
+    const durum = { gec: false };
+    _yapiKartYaz.sayac.istek++;
+    const p = yapiRpc('erp_kart_yaz', { p_istek: g })
+        .then((r) => { try { yapiKartDeneSonuc(g, r, durum); } catch (e) {} return r; }, () => null);
+    p.durum = durum;
+    return p;
+}
+
+/** Yazımdan hemen önce: kapıya sorar, en çok ms (varsayılan 1,5 sn) bekler. Kapalıysa beklemeden döner. */
+async function yapiKartDeneBekle(ekran, islemler, ms, ek) {
+    const p = yapiKartDene(ekran, islemler, ek);
+    if (!p.durum) return null;
+    const s = await Promise.race([p, new Promise((r) => setTimeout(() => r('__zaman'), ms != null ? ms : 1500))]);
+    if (s === '__zaman') { p.durum.gec = true; return null; }
+    return s;
+}
+
+function yapiKartDeneSonuc(g, r, durum) {
+    if (!r) return;
+    if (r.err === 'kurulu_degil') { _yapiKartYaz.kapiYok = true; return; }
+    if (['ag', 'baglanti', 'oturum', 'cevap'].includes(r.err)) { _yapiKartYaz.sayac.hata++; return; }
+    const atilan = r.ok && Array.isArray(r.atilan) && r.atilan.length ? r.atilan : null;
+    if (r.ok && !atilan) return;
+    /* program yazmış: kapı onun yazdığını görür */
+    if (!r.ok && durum && durum.gec && ['degismis', 'yok', 'kod_var'].includes(r.err)) { _yapiKartYaz.sayac.gec++; return; }
+    _yapiKartYaz.sayac.fark++;
+    const neden = r.ok ? 'atilan' : String(r.err || 'bilinmiyor');
+    const x = (Number.isInteger(r.islem) && g.islemler[r.islem]) || g.islemler[0] || {};
+    const kod = String(r.stok_kodu || (x.satir && (x.satir.desen_kodu || x.satir.stok_kodu)) || (x._b && x._b.kod) || '').trim().slice(0, 40);
+    const ayr = atilan ? atilan.join(',') : String(r.alan || (r.alanlar && r.alanlar.join(',')) || r.sira || r.neden || '').slice(0, 40);
+    yapiFarkBildir('stok_kart', ['yaz', neden, g.ekran, kod, ayr].join('|'), 1, r.ok ? 2 : 0, {
+        ayrinti: { islem: 'yaz', neden, ekran: g.ekran, program: g.program, gid: g.gid, islem_sayisi: g.islemler.length,
+            islem_no: Number.isInteger(r.islem) ? r.islem : null, tur: x.tur || '', id: x.id || '', kod, alan: r.alan || '',
+            alanlar: r.alanlar, atilan, ad: r.ad || '', siparis: r.siparis, depo: r.depo, sira: r.sira, yeni_kod: r.yeni_kod,
+            sonraki: r.sonraki, detay: r.detay || '', islemler: g.islemler.map((y) => (y.tur || '') + ':' + (y.id || (y.satir && (y.satir.desen_kodu || y.satir.stok_kodu)) || '')) }
+    });
+}
+
 /* ═══ KARŞILAŞTIRMA OKUYUCUSU — M1 sevk · M2 üretim (16–17.10.2026) ════════════════════════════════════════════════
    Ekranın gösterdiği (eski) sayıyı yeni yapıdaki sayıyla kıyaslar; ekrana dokunmaz. Modüller (yapiOkuTanimi):
      sevk   M1 · v_kalem_sevk: kaleme açıkça bağlı depo hareketi + DEVIR satırı (4-depo-sevk/5-sevk-devir.sql). Alan: sevk.
@@ -2422,8 +2583,7 @@ async function yapiKartOkuKiyas(eskiSatirlar, sutunlar) {
      yeniden istenir (ortam.<modül>Eski); ikisi de aynı farkı veriyorsa yapiFarkBildir(modül, anahtar, eski, yeni,
      { siparis_id, kalem_idx, ayrinti }) — anahtar 'sevk|<sipariş>|<kalem>' / 'uretim|<sipariş>|<kalem>|<alan>'.
      Bildirilen fark aynı kaldıkça yeniden okunmaz.
-   - YENI: M1 sevkte ekran yeni sayıyı gösterir (aşağıda "M1 · EKRAN GEÇİŞİ"); M2'de geçiş kodu yok (yeni: false) →
-     KARSILASTIR gibi çalışır.
+   - YENI: ekran yeni sayıyı gösterir (aşağıda "M1 · EKRAN GEÇİŞİ" sevk, "M2 · EKRAN GEÇİŞİ" üretim); kıyas durur.
    Ortam (yapiKur): <modül>Eski(sid, ki) → gösterilen şu an (sevk: sayı · uretim: { alan: sayı }; bilinemiyorsa null),
    <modül>Ayrinti(sid, ki) → eski sayının kaynakları (yalnız bildirilen farkta), siparisBilgi(sid) → { kapali, kapanis (ms) },
    yeniGeldi(modül, sipariş id'leri) → YENI'de yeni sayılar okununca / değişince ekranı yeniden çiz.
@@ -2551,11 +2711,14 @@ async function yapiOkuSiraOku(modul) {
     const yeniMod = yapiYeniMi(modul);
     if (!yeniMod && !yapiKarsilastirMi(modul)) { d.bek.clear(); return; }
     const once = yeniMod ? new Map(sids.map((x) => [x, yapiYeniImza(modul, d.sip.get(x))])) : null;
+    const yerelOnce = yeniMod ? new Set(sids.filter((x) => d.sip.get(x) && d.sip.get(x).yerel)) : null;
     const okunan = await yapiOkuSiparisler(modul, sids, false);
     if (yeniMod) {
         /* YENI: kıyas yok; ilk kez okunan ya da sayısı değişen siparişler için ekran yeniden çizilir */
         d.bek.clear();
-        const degisen = sids.filter((x) => okunan.has(x) && yapiYeniImza(modul, d.sip.get(x)) !== once.get(x));
+        /* yerel hesap gösterilen sipariş (kendi yazması) yeni sayıya geçer: sayı aynı olsa da yeniden çizilir */
+        const degisen = sids.filter((x) => okunan.has(x) && !(d.sip.get(x) || {}).yerel
+            && (yerelOnce.has(x) || yapiYeniImza(modul, d.sip.get(x)) !== once.get(x)));
         if (degisen.length) yapiYeniHaber(modul, degisen);
         return;
     }
@@ -2604,7 +2767,13 @@ async function yapiOkuSiparisler(modul, sids, ayrintili) {
                 t.alanlar.forEach((alan) => { const v = yapiSayi(r[alan]); k[alan] = v === null ? 0 : v; });
                 s.kalem.set(Number(r.sira), k);
             });
-            yeni.forEach((s, x) => { d.sip.set(x, s); okunan.add(x); });
+            yeni.forEach((s, x) => {
+                /* okuma sürerken tazelendiyse (yazma bu okumadan sonra bitti) işaretler kalır, sıradaki okuma getirir */
+                const o = d.sip.get(x);
+                if (o && o.tazeleAt > bas) { s.bayat = true; s.yerel = !!o.yerel; s.tazeleAt = o.tazeleAt; }
+                d.sip.set(x, s);
+                okunan.add(x);
+            });
         } catch (e) {
         } finally {
             parca.forEach((x) => d.ucus.delete(x));
@@ -2633,7 +2802,7 @@ function yapiYeniSayi(modul, siparisId, kalemIdx, alan) {
         const d = yapiOkuDurum(modul);
         const s = d.sip.get(sid);
         if (!s || s.bayat || !yapiOkuTazeMi(sid, s)) yapiYeniSiraya(modul, [sid], false);
-        if (!s) return null;
+        if (!s || s.yerel) return null;
         const k = s.kalem.get(ki);
         return k && typeof k[alan] === 'number' ? k[alan] : null;
     } catch (e) {
@@ -2643,6 +2812,55 @@ function yapiYeniSayi(modul, siparisId, kalemIdx, alan) {
 /** Ekranda gösterilecek sevk (M1): anahtar YENI'yken yeni sayı, değilse / okunmamışsa null. */
 function yapiSevkGoster(siparisId, kalemIdx) { return yapiYeniSayi('sevk', siparisId, kalemIdx, 'sevk'); }
 
+/* ═══ M2 · EKRAN GEÇİŞİ (anahtar 'uretim' YENI, 01.11.2026) ═════════════════════════════════════════════════════════
+   Ekran kalemin üretim sayılarını yeni yapıdan (kalem_durum: dokuma ham metre / kg / adet + ADET kalemde kesim … imha)
+   gösterir; okuma, önbellek ve tazeleme M1 ile aynı düzenek. Farkı: bu program üretim kaydı yazınca (dokuma topu, kesim,
+   yıkama, kalite, KD) o sipariş 'yerel' işaretlenir — yeni sayı okunana kadar (~0,3–0,6 sn) platform kendi hesabını gösterir
+   (yerel önbellek az önce yazılanı içerir; son okunan yeni sayı yazmadan önceki hâldir — giren kişi girişini görmeyip ikinci
+   kez girmesin). Başka programın yazmasında son okunan gösterilmeye devam eder (M1 gibi). kalem_durum'da olmayan alan
+   (konfeksiyon sayısı ADET dışı kalemde, fire) null döner → platform o alanda eski hesabı gösterir. */
+
+/** Kalemin yeni yapıdaki bütün alanları { alan: sayı | null } (SALT OKUNUR — her okumada yeniden kurulur); YENI değilse,
+    sipariş okunmamışsa / yerelse ya da kalem yeni yapıda yoksa null (platform eski hesabı gösterir). */
+function yapiYeniKalem(modul, siparisId, kalemIdx) {
+    if (!yapiYeniMi(modul)) return null;
+    try {
+        const sid = String(siparisId == null ? '' : siparisId).trim();
+        const ki = parseInt(kalemIdx, 10);
+        if (!/^[0-9]{1,18}$/.test(sid) || !(ki >= 0)) return null;
+        const d = yapiOkuDurum(modul);
+        const s = d.sip.get(sid);
+        if (!s || s.bayat || !yapiOkuTazeMi(sid, s)) yapiYeniSiraya(modul, [sid], false);
+        if (!s || s.yerel) return null;
+        const k = s.kalem.get(ki);
+        if (!k) return null;
+        if (!k.g) {
+            /* ham satırdan: boş kolon null kalır (okuyucunun kıyas için 0'a çevirdiği değil) */
+            const g = {};
+            yapiOkuTanimi(modul).alanlar.forEach((a) => { g[a] = yapiSayi(k.satir ? k.satir[a] : k[a]); });
+            k.g = g;
+        }
+        return k.g;
+    } catch (e) {
+        return null;
+    }
+}
+/** Ekranda gösterilecek üretim sayıları (M2): anahtar 'uretim' YENI'yken kalem_durum alanları, değilse / okunmamışsa /
+    yerelse null. Alanlar: dokuma_metre, dokuma_ham_kg, dokuma_ham_adet, kesim, yik_sevk, yik_gel, dikim, kalite, koli,
+    iki_kalite, tamir, imha (konfeksiyon alanları yalnız ADET kalemde dolu). */
+function yapiUretimGoster(siparisId, kalemIdx) { return yapiYeniKalem('uretim', siparisId, kalemIdx); }
+/** Ortak eşleme: konfeksiyon alanları programların adlarıyla { kesim, yikSevk, … } — kalem_durum'da boşsa (ADET dışı) null. */
+function yapiUretimKonf(y) {
+    if (!y || y.kesim == null) return null;
+    return { kesim: y.kesim, yikSevk: y.yik_sevk || 0, yikGel: y.yik_gel || 0, dikim: y.dikim || 0, kalite: y.kalite || 0,
+        koli: y.koli || 0, ikiKalite: y.iki_kalite || 0, tamir: y.tamir || 0, imha: y.imha || 0 };
+}
+/** Ortak eşleme: dokuma ham toplamı { metre, kg, adet } (ortakDokumaToplam'ın üç sayısı) — kalem_durum'da yoksa null. */
+function yapiUretimDokuma(y) {
+    if (!y || y.dokuma_metre == null) return null;
+    return { metre: y.dokuma_metre, kg: y.dokuma_ham_kg || 0, adet: y.dokuma_ham_adet || 0 };
+}
+
 /** Siparişleri okuma sırasına al (YENI'de kısa bekleme). uctaDa: okunmakta olsa bile yeniden oku (okuma sürerken gelen değişiklik). */
 function yapiYeniSiraya(modul, sids, uctaDa) {
     const d = yapiOkuDurum(modul);
@@ -2651,14 +2869,16 @@ function yapiYeniSiraya(modul, sids, uctaDa) {
     if (eklendi && !d.siraZ) d.siraZ = setTimeout(() => yapiOkuSiraOku(modul), _yapiYeni.bekleme);
 }
 
-/** Depo değişti (YENI'de): verilen siparişler (null = önbellekteki açık siparişler) bayatlar ve yeniden okunur; okunmamış
-    sipariş için bir şey yapılmaz (gösterilince okunur). */
-function yapiYeniTazele(modul, sids) {
+/** Kaynak değişti (YENI'de): verilen siparişler (null = önbellekteki açık siparişler) bayatlar ve yeniden okunur; okunmamış
+    sipariş için bir şey yapılmaz (gösterilince okunur). opts.yerel (M2: bu programın kendi yazması): yeni sayı okunana kadar
+    platform kendi (yerel önbellekteki, az önce yazdığını içeren) hesabını gösterir — son okunan yazmadan önceki sayıdır. */
+function yapiYeniTazele(modul, sids, opts) {
     if (!yapiYeniMi(modul)) return;
     const d = yapiOkuDurum(modul);
     const liste = (sids == null ? [...d.sip.keys()].filter((x) => yapiSiparisHaliOku(x) === 'ACIK')
         : sids.map((x) => String(x))).filter((x) => d.sip.has(x));
-    liste.forEach((x) => { d.sip.get(x).bayat = true; });
+    const yerel = !!(opts && opts.yerel), an = Date.now();
+    liste.forEach((x) => { const s = d.sip.get(x); s.bayat = true; s.tazeleAt = an; if (yerel) s.yerel = true; });
     if (liste.length) yapiYeniSiraya(modul, liste, true);
 }
 
@@ -3028,7 +3248,7 @@ async function startApp(){
   /* karşılama açıksa klavye arkada açılmasın — Başla'da odaklanır */
   if(ara&&tab==='giris'&&!karsilamaAcik())setTimeout(()=>ara.focus(),120);
   /* Yapı geçişi ortak okuyucusu (YAPI-OKUMA bloğu): modül anahtarları + cihaz sürümü */
-  if(typeof yapiKur==='function')yapiKur({platform:'DOKUMA_PANEL',programSurum:()=>PANEL_SURUM,token:()=>{try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'{}').token||'';}catch(e){return'';}},ekran:()=>panelEkran(),yayinla:t=>anlikYayinla(t),uretimEski:dokumaUretimEskiYeniden});
+  if(typeof yapiKur==='function')yapiKur({platform:'DOKUMA_PANEL',programSurum:()=>PANEL_SURUM,token:()=>{try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'{}').token||'';}catch(e){return'';}},ekran:()=>panelEkran(),yayinla:t=>anlikYayinla(t),uretimEski:dokumaUretimEskiYeniden,yeniGeldi:dokumaYapiYeniGeldi,ayarDegisti:dokumaYapiYeniGeldi});
 }
 
 /* ── Sipariş listesi ─────────────────────────────────────────────── */
@@ -3161,6 +3381,8 @@ async function tazeKdDegisti(akis){
     if((data||[]).length<=60)sids=new Set((data||[]).map(r=>String(r.siparis_id)));
   }
   _tazeIz=akis;
+  /* Yapı geçişi M2 YENI: değişen siparişlerin yeni dokunanı yeniden okunur (bilinemiyorsa önbellekteki açık siparişler) */
+  if(typeof yapiYeniTazele==='function')yapiYeniTazele('uretim',sids?[...sids]:null);
   /* önbellek: değişen siparişin kabı bayat — sonraki arama taze okur */
   const on=KD_TIP+'_';
   Object.keys(kdCacheTs).forEach(k=>{if(k.startsWith(on)&&(!sids||sids.has(k.slice(on.length))))kdCacheTs[k]=0;});
@@ -3263,18 +3485,21 @@ function anlikYazmaIzle(client){
     ['insert','upsert','update','delete'].forEach(y=>{
       const asil=q&&q[y]&&q[y].bind(q);
       if(!asil)return;
-      q[y]=(...a)=>{const s=asil(...a);try{anlikSonucIzle(s,tablo,y);}catch(e){}return s;};
+      q[y]=(...a)=>{const s=asil(...a);try{anlikSonucIzle(s,tablo,y,a);}catch(e){}return s;};
     });
     return q;
   };
 }
-function anlikSonucIzle(s,tablo,y){
+function anlikSonucIzle(s,tablo,y,a){
   if(!s||typeof s.then!=='function'||s.__anlikIzle)return;
   s.__anlikIzle=true;
   const silinen=[];
-  if(y==='delete')['eq','in'].forEach(f=>{const af=s[f]&&s[f].bind(s);if(!af)return;s[f]=(k,d)=>{if(k==='id')silinen.push(...[].concat(d));return af(k,d);};});
+  /* Yapı geçişi M2 YENI: dokuma kabına yazılan siparişler (satırdaki siparis_id ya da siparis_id süzgeci — kdDokumaYaz ikisini de verir) */
+  const ur=tablo==='siparis_akis'||tablo==='siparisler'?new Set():null;
+  if(ur&&y!=='delete')[].concat((a&&a[0])||[]).forEach(r=>{const v=r&&typeof r==='object'?(tablo==='siparisler'?r.id:r.siparis_id):null;if(v!=null&&v!=='')ur.add(String(v));});
+  if(y==='delete'||ur)['eq','in'].forEach(f=>{const af=s[f]&&s[f].bind(s);if(!af)return;s[f]=(k,d)=>{if(k==='id'&&y==='delete')silinen.push(...[].concat(d));if(ur&&(k==='siparis_id'||(tablo==='siparisler'&&k==='id')))[].concat(d).forEach(x=>ur.add(String(x)));return af(k,d);};});
   const asilThen=s.then.bind(s);
-  s.then=(tamam,hata)=>asilThen(r=>{try{if(!r||!r.error)anlikYayinla(tablo,silinen);}catch(e){}return tamam?tamam(r):r;},hata);
+  s.then=(tamam,hata)=>asilThen(r=>{try{if(!r||!r.error){anlikYayinla(tablo,silinen);if(ur&&ur.size&&typeof yapiYeniTazele==='function')yapiYeniTazele('uretim',[...ur],{yerel:true});}}catch(e){}return tamam?tamam(r):r;},hata);
 }
 function anlikYayinla(tablo,silinen){
   if(!ANLIK_TABLOLAR.includes(tablo))return;
@@ -3728,6 +3953,20 @@ function uretimDeneKalemIz(siparisId,kalemIdx){
   const k=sip?(parseKalemler(sip)[kalemIdx]||{}):{};
   return{kod:k.kod||'',ad:k.ad||'',renk:k.renk||'',ebat:k.ebat||''};
 }
+/* Yapı geçişi M4 · EKRAN GEÇİŞİ (anahtar 'uretim_yazma' YENI, 01.11.2026; ana programın 05 dtUretimKapi… ile aynı): top tek kapıdan
+   GERÇEK yazılır (YAPI-OKUMA yapiUretimYaz — defter + KD_DOKUMA + düzeltmede denetim satırı tek işlemde; kişi, yetki [düzeltme / silme
+   yalnız giren + yönetici], birim alanları, kalem kayması, ikiz veritabanında). İstemci ikiz sorusu (dokumaIkizOnay) bu yolda sorulmaz:
+   kapı 'ikiz' derse burada sorulur; bekleyen kuyruk ikiz_onay {atla:'kuyruk'}. Bağlantı yoksa top eskisi gibi tablette sıraya girer
+   (aynı gid ile sonra; kapı ikinci kez yazmaz). Kapı kurulu değilse eski yol. Başarıdan sonra kap taze okunur. */
+function uretimKapiMi(){return typeof yapiUretimYazYeniMi==='function'&&yapiUretimYazYeniMi();}
+/** Kapı başarılı: kap taze okunup önbelleğe, üretim sayısı tazelenir (M2, yerel). Okunamazsa önbellek bayatlar (sonraki arama okur). */
+async function uretimKapiSonrasi(siparisId){
+  if(typeof yapiYeniTazele==='function')yapiYeniTazele('uretim',[String(siparisId)],{yerel:true});
+  try{const t=await kdDokumaOkuTaze(siparisId);kdOnbellegeYaz(siparisId,t.kd||{});return t.kd||{};}
+  catch(e){kdCacheTs[KD_TIP+'_'+siparisId]=0;return null;}
+}
+function uretimAgHatasi(r){const e=new Error('NetworkError: bağlantı yok — '+(r&&r.hata||''));e.ag=true;return e;}
+
 /** Düzeltme / silmede cevap en çok 1,5 sn beklenir (yazdıktan sonra sorulursa kapı değişmiş topu okurdu) */
 function uretimDuzeltDene(govde){
   if(!uretimDeneAcik())return Promise.resolve(null);
@@ -3762,6 +4001,30 @@ async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet,kimlik){
     gid,
     ...(kullanici?{user:kullanici,kullanici}:{})
   };
+  if(uretimKapiMi()){
+    /* M4 YENI: kapıdan. Tarih: elle girilen topta kapının anı (cihaz saati kayıksa reddedilmesin), bekleyen topta girildiği an */
+    const govde={gid,asama:'DOKUMA',siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),
+      metre:metre||0,kg:kg||0,adet:adet||0,...(kimlik.bekliyor?{tarih:kimlik.tarih_iso}:{}),kaynak:KAYNAK,ek:{kumas:kimlik.kumas,...(kimlik.tezgah||{})},
+      ikiz_onay:kimlik.bekliyor?{atla:'kuyruk'}:(kimlik.ikiz_onaylandi||null)};
+    let r=await yapiUretimYaz('yaz',govde);
+    if(!r.ok&&r.err==='ikiz'&&r.ikizler){
+      const sip=siparisler.find(x=>String(x.id)===String(siparisId));
+      const ad=kalemEtiket(parseKalemler(sip||{})[kalemIdx]||{},kalemIdx);
+      const ok=await sayfaSor('⚠ AYNI KALEME AYNI TOP SON '+DOKUMA_IKIZ_DK+' DAKİKADA GİRİLMİŞ\n\n'+(sip?.sno||'')+' · '+ad
+        +'\nGirmek istediğiniz: '+girisMiktarOzeti({metre,kg,adet})+'\n'+yapiUretimIkizSatirlari(r.ikizler).join('\n')
+        +'\n\nAynı topu ikinci kez giriyorsanız İPTAL edin — yoksa dokunan iki kez sayılır.\nGerçekten ayrı bir topsa "Ayrı top — kaydet"e basın.',{evet:'Ayrı top — kaydet',hayir:'İptal'});
+      if(!ok){const e=new Error('İkiz top uyarısı — kayıt yapılmadı.');e.ikizIptal=true;throw e;}
+      govde.ikiz_onay=yapiUretimIkizOnay(r.ikizler);giris.ikiz_onaylandi=govde.ikiz_onay;
+      r=await yapiUretimYaz('yaz',govde);
+    }
+    if(r.ok){
+      const kd=await uretimKapiSonrasi(siparisId);
+      dokunanIds.add(String(siparisId));
+      return (kd?.urunler?.[kalemIdx]?.girisler||[]).find(x=>x&&x.gid===gid)||giris;
+    }
+    if(r.ag)throw uretimAgHatasi(r);   /* topKaydet sıraya alır, bekleyenGonder bekletir */
+    if(!r.kapiYok)throw new Error(r.hata);
+  }
   /* yapı geçişi M4 karşılaştırma: yazmadan önce kapıya sor — cevap BEKLENMEZ, yazım değişmez (bekleyen kuyrukta ikiz sorulmaz) */
   if(uretimDeneAcik())yapiUretimDene('yaz',{gid,asama:'DOKUMA',siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),
     metre:metre||0,kg:kg||0,adet:adet||0,tarih:kimlik.tarih_iso,kaynak:KAYNAK,ek:{kumas:kimlik.kumas,...(kimlik.tezgah||{})},
@@ -3870,8 +4133,8 @@ async function dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet){
 /** Topu yazar; internet yoksa tablette sıraya alır. {bekliyor, giris} döner.
     Bağlantı dışı hatalar (ör. aynı anda yazma çakışması) fırlatılır — sessizce sıraya girmez. */
 async function topKaydet(siparisId,kalemIdx,metre,kg,adet,satir){
-  /* İkiz top uyarısı — vazgeçilirse hiçbir şey yazılmaz, sıraya da girmez */
-  const ikiz=await dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet);
+  /* İkiz top uyarısı — vazgeçilirse hiçbir şey yazılmaz, sıraya da girmez (M4 YENI: kapı sorar, dokumaGirisEkle'de) */
+  const ikiz=uretimKapiMi()?{}:await dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet);
   if(ikiz===null){const e=new Error('İkiz top uyarısı — kayıt yapılmadı.');e.ikizIptal=true;throw e;}
   const kimlik=yeniGirisKimligi();
   if(ikiz.ts)kimlik.ikiz_onaylandi=ikiz;
@@ -4058,6 +4321,12 @@ async function dokumaDenetimYaz(tip,ctx){
 
 /** Yanlış girilen topu siler — gid ile, toplamlardan da düşerek. */
 async function dokumaGirisSil(siparisId,kalemIdx,gid,kalemAd){
+  if(uretimKapiMi()){
+    /* M4 YENI: kapı siler (top + toplam + denetim satırı tek işlemde; yalnız giren kişi + yönetici) */
+    const r=await yapiUretimYaz('duzelt',{siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),islem:'SIL',gid,kaynak:KAYNAK,kalem_ad:kalemAd||''});
+    if(r.ok){await uretimKapiSonrasi(siparisId);return !(r.cevap&&r.cevap.zaten_yok);}
+    if(!r.kapiYok)throw new Error(r.hata);
+  }
   /* yapı geçişi M4 karşılaştırma: silmeden önce kapıya sor (yazım değişmez) */
   await uretimDuzeltDene({siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),islem:'SIL',gid,kaynak:KAYNAK,kalem_ad:kalemAd||''});
   let sonHata=null;
@@ -4109,6 +4378,13 @@ async function dokumaGirisGuncelle(siparisId,kalemIdx,gid,yeniDeger,kalemAd){
   const yMetre=parseFloat(yeniDeger.metre)||0;
   const yKg=parseFloat(yeniDeger.kg)||0;
   const yAdet=parseInt(yeniDeger.adet,10)||0;
+  if(uretimKapiMi()){
+    /* M4 YENI: kapı düzeltir (top + geçmiş + toplam + denetim satırı tek işlemde; yalnız giren kişi + yönetici; birim alanları) */
+    const r=await yapiUretimYaz('duzelt',{siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),islem:'DUZELT',gid,
+      metre:yMetre,kg:yKg,adet:yAdet,kaynak:KAYNAK,kalem_ad:kalemAd||''});
+    if(r.ok){if(r.cevap&&r.cevap.degisti===false)return false;await uretimKapiSonrasi(siparisId);return true;}
+    if(!r.kapiYok)throw new Error(r.hata);
+  }
   /* yapı geçişi M4 karşılaştırma: düzeltmeden önce kapıya sor (yazım değişmez) */
   await uretimDuzeltDene({siparis_id:Number(siparisId),kalem_idx:kalemIdx,kalem_iz:uretimDeneKalemIz(siparisId,kalemIdx),islem:'DUZELT',gid,
     metre:yMetre,kg:yKg,adet:yAdet,kaynak:KAYNAK,kalem_ad:kalemAd||''});
@@ -4181,9 +4457,18 @@ async function dokumaGirisGuncelle(siparisId,kalemIdx,gid,yeniDeger,kalemAd){
     (YAPI-OKUMA bloğu): siparişin KD_DOKUMA'sı okunmuşsa dokunan (ham: ortakDokumaToplam) yeni yapıyla (kalem_durum)
     kıyaslanır, fark deftere düşer; dönen özet DEĞİŞMEZ. */
 function kalemOzetGoster(siparisId,kalemIdx,k,u){
+  /* Yapı geçişi M2 ekran geçişi (01.11.2026): anahtar 'uretim' YENI'yken dokunan (ham metre / kg / adet) yeni yapıdan (kalem_durum,
+     ana programla aynı); okunmamışsa / bu tabletin az önceki topunda (yerel) o an KD'den, okuma bitince dokumaYapiYeniGeldi çizer */
+  const y=typeof yapiUretimGoster==='function'?yapiUretimDokuma(yapiUretimGoster(siparisId,kalemIdx)):null;
+  if(y)return kalemOzet(k,u,y);
   const o=kalemOzet(k,u);
   if(typeof yapiUretimKarsilastir==='function'&&kdCache[KD_TIP+'_'+siparisId]!==undefined)yapiUretimKarsilastir(siparisId,kalemIdx,{dokuma_metre:o.metre,dokuma_ham_kg:o.kg,dokuma_ham_adet:o.adet});
   return o;
+}
+/** Yapı geçişi M2 (YENI): yeni dokunan okununca / değişince ya da anahtar değişince ekrandaki kartların rakamları yerinde
+    (liste baştan çizilmez, odak / kaydırma bozulmaz). */
+function dokumaYapiYeniGeldi(){
+  try{(_uaSonSatirlar||[]).forEach(r=>{if(r&&!r.kumas)gkKartTazele(r.siparisId,r.kalemIdx);});}catch(e){}
 }
 /** Doğrulama: kalemin dokunanı şu an (KD_DOKUMA okunmamışsa null). */
 function dokumaUretimEskiYeniden(siparisId,kalemIdx){
@@ -4194,9 +4479,12 @@ function dokumaUretimEskiYeniden(siparisId,kalemIdx){
   const o=kalemOzet(k,kd?.urunler?.[kalemIdx]||{});
   return{dokuma_metre:o.metre,dokuma_ham_kg:o.kg,dokuma_ham_adet:o.adet};
 }
-function kalemOzet(k,u){
-  /* Toplam ORTAK kuralda (ortakDokumaToplam) — ana program ve Konfeksiyon Panel aynı fonksiyonu çağırır */
-  const{tip,metre,kg,adet}=ortakDokumaToplam(u,k);
+function kalemOzet(k,u,yeni){
+  /* Toplam ORTAK kuralda (ortakDokumaToplam) — ana program ve Konfeksiyon Panel aynı fonksiyonu çağırır.
+     yeni (M2 YENI): { metre, kg, adet } yeni yapıdan — verilirse toplam onun */
+  const t=ortakDokumaToplam(u,k);
+  const{tip}=t;
+  const{metre,kg,adet}=yeni||t;
   const birim=siparisKalemBirim(k);
   const hedef=parseFloat(k?.miktar||0)||0;
   /* Kalan hangi birimden ölçülüyor? MT siparişte metre, KG'de kg, adette adet. */
@@ -5916,8 +6204,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261031-efd8cf2a';
-const PANEL_ZAMAN=1793454227;
+const PANEL_SURUM='20261101-15eabdeb';
+const PANEL_ZAMAN=1793546988;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
