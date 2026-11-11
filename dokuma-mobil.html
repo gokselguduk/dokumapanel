@@ -493,6 +493,13 @@ function ortakKalemGirisAlanlari(kalem) {
     return { tip, metre: true, kg: tip === 'KG' || ek.indexOf('KG') >= 0, adet: tip === 'ADET' || ek.indexOf('ADET') >= 0, ek };
 }
 
+/** Kumaş planı topu (adetli siparişte dokunan kumaşın kendisi, metreyle): girişte metre + KG (10.11.2026, kullanıcı: "kumaş
+ *  varsa ve metre giriliyorsa kg da girilecek"; önce yalnız metreydi). Platformlar kumaşın "kalemine" (birim MT) bunu ek birim
+ *  olarak koyar → ortakKalemGirisAlanlari metre + kg ister. Veritabanı kapısı aynı kural (SQL 10-uretim-yazma/3-kumas-kg). */
+function ortakKumasTopuEkBirim() {
+    return ['KG'];
+}
+
 /** Girişte istenenlerin kısa yazımı: "m", "m + kg", "m + adet", "m + kg + adet". */
 function ortakKalemGirisEtiket(kalem) {
     const a = ortakKalemGirisAlanlari(kalem);
@@ -782,8 +789,9 @@ function ortakDepoDefterTopla(rows) {
  *              için kumaş metresi düşülür; metresi bilinmeyen kalemin kesimi metreden düşülemez (metresizAd).
  *  sevkler  : [{ sid, ki, t, ad, mt, kg, kes, … }] — sid metin, ki sayı, t milisaniye; ek alanlar aynen taşınır
  *  kesimler : [{ sid, ki, t, ad }]
- *  kumasKalemleri(sid, ki) → { km, kalemler: [{ ki, m }] } | null   (m = fire dahil 1 adet için metre;
- *                            platform siparişin planını kurar, ortakKesimOnuKumasKalemleri döndürür)
+ *  kumasKalemleri(sid, ki) → { km, kalemler: [{ ki, m, renk }] } | null   (m = fire dahil 1 adet için metre;
+ *                            platform siparişin planını kurar, ortakKesimOnuKumasKalemleri döndürür). Aynı kumaştan
+ *                            birden çok kaleme metreyle sevk varsa her kumaş kalemi tek gruba düşülür (aşağıda).
  *  Dönen: bekleyen kalemler, en uzun bekleyen üstte:
  *    { sid, ki, sevkler (eskiden yeniye), ilk, gelenAd, gelenMt, gelenKg, satirKes, metreMi,
  *      kesilenAd, kalanAd  |  kumas, kesilenAd, kesilenMt, metresizAd, kalanMt,  bekleyenTs } */
@@ -804,11 +812,44 @@ function ortakKesimOnuHesapla(sevkler, kesimler, kumasKalemleri) {
     grup.forEach((g) => kesimSid.set(g.sid, []));
     (kesimler || []).forEach((k) => { const l = k && kesimSid.get(k.sid); if (l) l.push(k); });
     const sonraKesilen = (g, ki) => kesimSid.get(g.sid).reduce((t, k) => (k.ki === ki && k.t >= g.ilk) ? t + (k.ad || 0) : t, 0);
-    const out = [];
+    /* Metreyle gelen kumaş (kumaş planı): aynı siparişte aynı kumaştan BİRDEN ÇOK kaleme sevk varsa (boyahane dönüşü renk
+       renk kendi kalemine — 10.11.2026) her kumaş kalemi TEK gruba düşülür: kalemin kendi grubu; yoksa aynı renkli kalemin
+       grubu (en eski sevkli); yoksa kumaşın ilk (öncü) kaleminin grubu; o da yoksa en eski grup. Tek grupta bütün kalemler
+       o gruba (eski davranış) — bir kesim iki renk grubundan birden düşülmez. */
+    const renkAnahtar = (s) => String(s || '').trim().toLocaleUpperCase('tr-TR');
+    const kumasGrup = new Map();   /* sipariş|kumaş → metreyle gelen gruplar */
     grup.forEach((g) => {
         g.sevkler.sort((a, b) => a.t - b.t);
         g.ilk = g.sevkler[0].t;
         g.metreMi = !(g.gelenAd > 0);
+        if (!g.metreMi || !(g.gelenMt > 0)) return;
+        g._kk = typeof kumasKalemleri === 'function' ? kumasKalemleri(g.sid, g.ki) : null;
+        if (!g._kk || !g._kk.km) return;
+        const a = g.sid + '|' + g._kk.km.id;
+        if (!kumasGrup.has(a)) kumasGrup.set(a, []);
+        kumasGrup.get(a).push(g);
+    });
+    kumasGrup.forEach((gl) => {
+        if (gl.length < 2) return;
+        gl.sort((a, b) => a.ilk - b.ilk);
+        const tum = gl[0]._kk.kalemler;
+        const renkOf = (ki) => renkAnahtar((tum.find((u) => u.ki === ki) || {}).renk);
+        const oncu = gl[0]._kk.km.oncuKi;
+        gl.forEach((g) => { g._atanan = []; });
+        tum.forEach((u) => {
+            const r = renkAnahtar(u.renk);
+            const hedef = gl.find((g) => g.ki === u.ki)
+                || (r ? gl.find((g) => renkOf(g.ki) === r) : null)
+                || gl.find((g) => g.ki === oncu)
+                || gl[0];
+            hedef._atanan.push(u);
+        });
+    });
+    const out = [];
+    grup.forEach((g) => {
+        const kumas = g._kk, atanan = g._atanan;
+        delete g._kk;
+        delete g._atanan;
         let dusen;   /* sevklerden eskiden yeniye düşülecek miktar (adet ya da metre) — bekleme süresi için */
         if (!g.metreMi) {
             g.kesilenAd = Math.max(g.satirKes, sonraKesilen(g, g.ki));
@@ -817,12 +858,11 @@ function ortakKesimOnuHesapla(sevkler, kesimler, kumasKalemleri) {
             dusen = g.kesilenAd;
         } else {
             if (!(g.gelenMt > 0)) return;
-            const kumas = typeof kumasKalemleri === 'function' ? kumasKalemleri(g.sid, g.ki) : null;
             g.kumas = kumas ? kumas.km : null;
             g.kesilenAd = 0;
             g.kesilenMt = 0;
             g.metresizAd = 0;
-            (kumas ? kumas.kalemler : [{ ki: g.ki, m: 0 }]).forEach((u) => {
+            (atanan || (kumas ? kumas.kalemler : [{ ki: g.ki, m: 0 }])).forEach((u) => {
                 const ad = sonraKesilen(g, u.ki);
                 g.kesilenAd += ad;
                 if (u.m > 0) g.kesilenMt += ad * u.m; else g.metresizAd += ad;
@@ -937,12 +977,14 @@ function ortakYikamaKalemPaylari(satirlar, kapatmalar) {
 
 /* ── Kumaş planı ─────────────────────────────────────────────────────── */
 
-/** Plandaki kumaşlar (KD_URUN_AGACI siparis.kumas_plani.kumaslar) → [{ id, kod, ad, cekme }] (hepsi metin).
- *  Kimliği (A, B …) boş satır kumaş değildir. */
+/** Plandaki kumaşlar (KD_URUN_AGACI siparis.kumas_plani.kumaslar) → [{ id, kod, ad, cekme, fazla, kesim_fire, boya_fire }]
+ *  (hepsi metin; yüzdeler: cekme = boyahane çekmesi, fazla = sipariş fazlası, kesim_fire = kumaşın kalemlerinin kesim
+ *  firesi, boya_fire = boyahane firesi — 10.11.2026). Kimliği (A, B …) boş satır kumaş değildir. */
 function ortakKumasPlaniKumaslar(ham) {
+    const yazi = (k, a) => String(k && k[a] != null ? k[a] : '');
     return (Array.isArray(ham) ? ham : []).map((k) => ({
         id: String((k && k.id) || ''), kod: String((k && k.kod) || ''), ad: String((k && k.ad) || ''),
-        cekme: String(k && k.cekme != null ? k.cekme : '')
+        cekme: yazi(k, 'cekme'), fazla: yazi(k, 'fazla'), kesim_fire: yazi(k, 'kesim_fire'), boya_fire: yazi(k, 'boya_fire')
     })).filter((k) => k.id);
 }
 
@@ -959,17 +1001,23 @@ function ortakKumasPlaniVarMi(kumaslarHam) {
  *    kalemAgaci(ki) : kalemin ürün ağacı (KD_URUN_AGACI u_<ki>): kumas_id, kumas_metre, kumas_tolerans, asamalar
  *  Kalemin kumaşı (kumas_id): plandaki bir kimlik → o kumaş;  '' → plandaki TEK kumaş (birden çok kumaş varsa hiçbiri);
  *  '-' → kumaştan değil;  planda olmayan kimlik → hiçbiri.
- *  Kalem satırı: { ki, birim, metreMi, kgMi, adet, m, fire, secim, kumasId, otomatik, boyali, adetMetre, dokunur }
- *    m = 1 adet için boyalı kumaş (m), fire = kesim firesi (%) — virgüllü yazım da okunur ("1,5");
- *    adetMetre = m × (1 + fire): fire DAHİL 1 adet için kumaş. Metre / kg birimli kalemde 0 (adetten metreye çevrilmez);
- *    boyali    = adet × m × (1 + fire). Metre birimli kalem kendi metresiyle girer, kg birimli kalem 0;
+ *  Kalem satırı: { ki, birim, metreMi, kgMi, adet, m, fire, fazla, secim, kumasId, otomatik, boyali, adetMetre, dokunur }
+ *    m = 1 adet için boyalı kumaş (m) — virgüllü yazım da okunur ("1,5"); fire = kesim firesi (%): kumaşa bağlı ADET
+ *    kalemde kumaşın kesim firesi (kalemin kumas_tolerans'ı sayılmaz), metre / kg kalemde 0; fazla = kumaşın sipariş fazlası (%);
+ *    adetMetre = m × (1 + fire): fire DAHİL 1 adet için kumaş (sipariş fazlası girmez). Metre / kg birimli kalemde 0;
+ *    boyali    = adet × m × (1 + fazla) × (1 + fire). Metre birimli kalem kendi metresiyle girer, kg birimli kalem 0;
  *    dokunur   = kalemin aşamalarında "dokuma" var ya da aşaması hiç tanımlı değil.
- *  Kumaş: { id, kod, ad, cekme, cekmePct, kalemler (satırlar, kalem sırasıyla), oncuKi (İLK kalemi — dokuma girişi oraya
- *    yazılır), dokunur (kalemlerinden biri dokunuyorsa), boyali (kalemlerin toplamı), ham = boyali × (1 + çekme) }
+ *  Kumaş: { id, kod, ad, cekme, fazla, kesim_fire, boya_fire, cekmePct, fazlaPct, kesimFirePct, boyaFirePct,
+ *    hamCarpan = (1 + çekme) × (1 + boyahane firesi), kalemler (satırlar, kalem sırasıyla), oncuKi (İLK kalemi — dokuma
+ *    girişi oraya yazılır), dokunur (kalemlerinden biri dokunuyorsa), boyali (kalemlerin toplamı), ham = boyali × hamCarpan }
  *  Dönen: { var (planda kumaş var mı), kumaslar, satirlar (her kalem, kumaşı olmayan da) }. */
 function ortakKumasPlani(kumaslarHam, kalemler, kalemAgaci) {
     const kumaslar = ortakKumasPlaniKumaslar(kumaslarHam).map((k) => {
         k.cekmePct = ortakSayi(k.cekme);
+        k.fazlaPct = ortakSayi(k.fazla);
+        k.kesimFirePct = ortakSayi(k.kesim_fire);
+        k.boyaFirePct = ortakSayi(k.boya_fire);
+        k.hamCarpan = (1 + k.cekmePct / 100) * (1 + k.boyaFirePct / 100);
         k.kalemler = [];
         k.oncuKi = null;
         k.dokunur = false;
@@ -988,12 +1036,17 @@ function ortakKumasPlani(kumaslarHam, kalemler, kalemAgaci) {
         const kgMi = birim === 'KG';
         const adet = metreMi || kgMi ? 0 : (parseInt(k && k.miktar, 10) || 0);
         const m = ortakSayi(ua.kumas_metre);
-        const fire = ortakSayi(ua.kumas_tolerans);
+        const km = kumasId ? byId.get(kumasId) : null;
+        /* Kesim firesi kumaşa bağlı kalemde YALNIZ kumaşın (kullanıcı 10.11.2026: kalem tablosundaki kesim firesi kalktı —
+           kalemde eskiden yazılı değer artık sayılmaz, kumaşınkini gizlice ezmesin); metre / kg kalemde 0.
+           Kumaşa bağlı olmayan kalemde (planda hesaba girmez) eskisi gibi kalemin değeri. */
+        const fire = km ? (!metreMi && !kgMi ? km.kesimFirePct : 0) : ortakSayi(ua.kumas_tolerans);
+        const fazla = km ? km.fazlaPct : 0;
         const net = metreMi ? ortakSayi(k && k.miktar) : (kgMi ? 0 : adet * m);
         const asama = ua.asamalar;
         return {
-            ki, birim, metreMi, kgMi, adet, m, fire, secim, kumasId, otomatik: !secim && !!kumasId,
-            boyali: net * (1 + fire / 100),
+            ki, birim, metreMi, kgMi, adet, m, fire, fazla, secim, kumasId, otomatik: !secim && !!kumasId, renk: String((k && k.renk) || '').trim(),
+            boyali: net * (1 + fazla / 100) * (1 + fire / 100),
             adetMetre: (metreMi || kgMi) ? 0 : m * (1 + fire / 100),
             dokunur: !Array.isArray(asama) || !asama.length || asama.includes('dokuma')
         };
@@ -1006,7 +1059,7 @@ function ortakKumasPlani(kumaslarHam, kalemler, kalemAgaci) {
         km.boyali += r.boyali;
         if (r.dokunur) km.dokunur = true;
     });
-    kumaslar.forEach((km) => { km.ham = km.boyali * (1 + km.cekmePct / 100); });
+    kumaslar.forEach((km) => { km.ham = km.boyali * km.hamCarpan; });
     return { var: kumaslar.length > 0, kumaslar, satirlar };
 }
 
@@ -1016,11 +1069,12 @@ function ortakKumasPlaniKalemKumasi(plan, ki) {
     return ((plan && plan.kumaslar) || []).find((km) => km.kalemler.some((r) => r.ki === n)) || null;
 }
 
-/** Kesim önü için — metreyle gelen kumaşın kalemleri: { km, kalemler: [{ ki, m }] } | null
- *  (m = fire dahil 1 adet için metre; ortakKesimOnuHesapla'nın kumasKalemleri geri çağrısı bunu döndürür). */
+/** Kesim önü için — metreyle gelen kumaşın kalemleri: { km, kalemler: [{ ki, m, renk }] } | null
+ *  (m = fire dahil 1 adet için metre, renk = kalemin rengi — boyahane dönüşü renk renk ayrı kaleme gelince kesim
+ *  hangi gruptan düşülecek; ortakKesimOnuHesapla'nın kumasKalemleri geri çağrısı bunu döndürür). */
 function ortakKesimOnuKumasKalemleri(plan, ki) {
     const km = ortakKumasPlaniKalemKumasi(plan, ki);
-    return km ? { km, kalemler: km.kalemler.map((r) => ({ ki: r.ki, m: r.adetMetre })) } : null;
+    return km ? { km, kalemler: km.kalemler.map((r) => ({ ki: r.ki, m: r.adetMetre, renk: r.renk || '' })) } : null;
 }
 /* ORTAK-KURALLAR:SON */</script>
 <script>/* YAPI-OKUMA:BAS — src/stok/js/38-yapi-okuma.js dosyasından üretilir (npm run sync:mobil). ELLE DEĞİŞTİRMEYİN. */
@@ -3980,7 +4034,9 @@ async function dokumaGirisEkle(siparisId,kalemIdx,metre,kg,adet,kimlik){
   {
     const sip=siparisler.find(x=>String(x.id)===String(siparisId));
     const tip=sip?ikinciBirimTip(parseKalemler(sip)[kalemIdx]||{}):(kimlik.tip||'ADET');
-    const alan=sip?girisAlan(parseKalemler(sip)[kalemIdx]||{}):(kimlik.alan||{kg:tip==='KG',adet:tip==='ADET'});
+    /* kumaş planı topu siparişin kalemiyle değil kumaşın kuralıyla: metre + kg (ORTAK ortakKumasTopuEkBirim, 10.11.2026) */
+    const alan=kimlik.kumas?girisAlan({birim:'MT',ek_birim:ortakKumasTopuEkBirim()})
+      :(sip?girisAlan(parseKalemler(sip)[kalemIdx]||{}):(kimlik.alan||{kg:tip==='KG',adet:tip==='ADET'}));
     if(!alan.kg)kg=0;
     if(!alan.adet)adet=0;
   }
@@ -4532,13 +4588,14 @@ async function urunAraSatirlariGetir(q){
   await Promise.all([getKdBatch(top.map(e=>e.sip.id),KD_TIP),getKdBatch(top.map(e=>e.sip.id),'KD_URUN_AGACI')]);
   const kumasGorulen=new Set();
   return top.map(({sip,k,idx})=>{
-    /* Kumaşa bağlı kalem tek tek değil, kumaş olarak (adıyla, yalnız metre) çıkar */
+    /* Kumaşa bağlı kalem tek tek değil, kumaş olarak (adıyla, metre + kg) çıkar */
     const kum=tzKalemKumasi(sip,idx);
     if(kum){
       const anahtar=sip.id+'|'+kum.id;
       if(kumasGorulen.has(anahtar))return null;
       kumasGorulen.add(anahtar);
-      const kk={...(parseKalemler(sip)[kum.oncuKi]||{}),ad:kum.ad,renk:'HAM',ebat:kum.kalemSay+' kalem',olcu:'',birim:'MT',miktar:0,__kumas:kum.id};
+      /* kumaş topu: metre + kg (ORTAK ortakKumasTopuEkBirim, 10.11.2026) */
+      const kk={...(parseKalemler(sip)[kum.oncuKi]||{}),ad:kum.ad,renk:'HAM',ebat:kum.kalemSay+' kalem',olcu:'',birim:'MT',ek_birim:ortakKumasTopuEkBirim(),miktar:0,__kumas:kum.id};
       const ukd=kdCache[KD_TIP+'_'+sip.id]||{};
       return{siparisId:sip.id,sno:sip.sno||String(sip.id),firma:sip.firma||sip.musteri||'—',
         kalemIdx:kum.oncuKi,kalem:kk,kumas:kum.id,etiket:[kk.ad,'HAM',kk.ebat].join(' · '),ozet:kalemOzet(kk,ukd?.urunler?.[kum.oncuKi]||{})};
@@ -4786,7 +4843,7 @@ async function vgListeKur(){
           kalemIdx:ki,
           kumas:g.kumas||null,
           etiket:g.kumas?('Kumaş '+g.kumas+' (ham)'):kalemEtiket(k,ki),
-          birimTip:g.kumas?'MT':girisIkinciTip(k),birimTip3:g.kumas?'':girisUcuncuTip(k), /* giriş kutuları (MT + ek birim dahil) */
+          birimTip:g.kumas?'KG':girisIkinciTip(k),birimTip3:g.kumas?'':girisUcuncuTip(k), /* giriş kutuları (MT + ek birim dahil; kumaş topu metre + kg) */
           metre:parseFloat(g.metre||0)||0,kg:parseFloat(g.kg||0)||0,adet:parseInt(g.adet||0,10)||0,
           tarih:g.tarih||(gt?gt.toLocaleString('tr-TR'):''),ts:gt?gt.getTime():0,
           user:g.user||g.kullanici||'',gid:panelden?g.gid:('x-'+sid+'-'+ki+'-'+gi),
@@ -5153,7 +5210,7 @@ function tzIsKumasId(is){const m=/\[KUMAS_PLANI:([A-Z])/.exec(String(is?.notlar|
 function tzIsKalemi(k,is){
   const kid=tzIsKumasId(is);
   if(!kid)return k||{};
-  return{...(k||{}),ad:is.urun_adi||('Kumaş '+kid),renk:is.renk||'HAM',ebat:is.ebat||'',olcu:'',birim:'MT',miktar:is.hedef_metre||0,__kumas:kid};
+  return{...(k||{}),ad:is.urun_adi||('Kumaş '+kid),renk:is.renk||'HAM',ebat:is.ebat||'',olcu:'',birim:'MT',ek_birim:ortakKumasTopuEkBirim(),miktar:is.hedef_metre||0,__kumas:kid};
 }
 function tzIsEtiket(is){
   const sip=tzSiparisCache.get(String(is?.siparis_id));
@@ -6204,8 +6261,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261101-15eabdeb';
-const PANEL_ZAMAN=1793546988;
+const PANEL_SURUM='20261111-e9e5f3cf';
+const PANEL_ZAMAN=1794377839;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
