@@ -500,6 +500,36 @@ function ortakKumasTopuEkBirim() {
     return ['KG'];
 }
 
+/** Dokuma topunda kg şüpheli mi (11.11.2026, kullanıcı: "1 gibi anlamsız kg girilince uyarı çıksın"). Metre başına gram makul
+ *  aralığın dışındaysa şüpheli — ENGEL DEĞİL, platform sorar ("Doğru, kaydet" / "Düzelt"). Ölçüm 11.11: 1.342 topun gerçek
+ *  kg'leri metre başına 250–980 g; 100 g'ın altındaki 151 topun hepsi 1–6 kg yazılmış yer tutucu (19.10'dan beri), 100–200 arası
+ *  hiç yok. Yalnız metre ve kg ikisi de girilmişse bakılır. Dönüş: null (sorun yok) ya da { gm, alt, ust, yon: 'dusuk' | 'yuksek' }. */
+function ortakDokumaKgAraligi() {
+    return { alt: 100, ust: 2000 };
+}
+function ortakDokumaKgSupheli(metre, kg) {
+    const m = ortakSayi(metre), k = ortakSayi(kg);
+    if (!(m > 0) || !(k > 0)) return null;
+    const gm = k * 1000 / m;
+    const a = ortakDokumaKgAraligi();
+    if (gm >= a.alt && gm <= a.ust) return null;
+    return { gm: Math.round(gm), alt: a.alt, ust: a.ust, yon: gm < a.alt ? 'dusuk' : 'yuksek' };
+}
+/** Uyarının metni (dört program aynı cümle): satır = { etiket, metre, kg } */
+function ortakDokumaKgUyariMetni(satirlar) {
+    const say = (v) => String(Math.round(ortakSayi(v) * 10) / 10).replace('.', ',');
+    const bloklar = (satirlar || []).map(s => {
+        const r = ortakDokumaKgSupheli(s.metre, s.kg);
+        if (!r) return '';
+        return (s.etiket ? s.etiket + '\n' : '') + say(s.metre) + ' m için ' + say(s.kg) + ' kg = metre başına ' + r.gm + ' gram ('
+            + (r.yon === 'dusuk' ? 'çok az' : 'çok fazla') + ')';
+    }).filter(Boolean);
+    if (!bloklar.length) return '';
+    const a = ortakDokumaKgAraligi();
+    return '⚠ KG ŞÜPHELİ\n\n' + bloklar.join('\n\n') + '\n\nDokunan kumaşta metre başına ' + a.alt + '–' + a.ust
+        + ' gram beklenir. Kg\'yi tartıdan okuyup girin.\nKg gerçekten buysa "Doğru, kaydet"e basın.';
+}
+
 /** Girişte istenenlerin kısa yazımı: "m", "m + kg", "m + adet", "m + kg + adet". */
 function ortakKalemGirisEtiket(kalem) {
     const a = ortakKalemGirisAlanlari(kalem);
@@ -4186,9 +4216,21 @@ async function dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet){
   return ok?{ts:new Date().toISOString(),ikiz_gid:es.map(g=>g.gid||g.tarih_iso)}:null;
 }
 
+/* Kg şüpheli uyarısı (11.11.2026, kullanıcı: "1 gibi anlamsız kg girilince uyarı çıksın"; kural + metin ORTAK:
+   ortakDokumaKgSupheli / ortakDokumaKgUyariMetni — ana program 26 erpDokumaKgOnay aynısı). Şüpheli yoksa true; varsa sorar:
+   "Doğru, kaydet" → true, "Düzelt" → false. Engel değil, yalnız soru; internetsiz de sorar (veri okumaz). */
+async function dokumaKgOnay(siparisId,kalemIdx,metre,kg,etiket){
+  if(!ortakDokumaKgSupheli(metre,kg))return true;
+  const sip=siparisler.find(x=>String(x.id)===String(siparisId));
+  const ad=etiket||kalemEtiket(parseKalemler(sip||{})[kalemIdx]||{},kalemIdx);
+  return !!(await sayfaSor(ortakDokumaKgUyariMetni([{etiket:(sip?.sno?sip.sno+' · ':'')+ad,metre,kg}]),{evet:'Doğru, kaydet',hayir:'Düzelt'}));
+}
+
 /** Topu yazar; internet yoksa tablette sıraya alır. {bekliyor, giris} döner.
     Bağlantı dışı hatalar (ör. aynı anda yazma çakışması) fırlatılır — sessizce sıraya girmez. */
 async function topKaydet(siparisId,kalemIdx,metre,kg,adet,satir){
+  /* Kg şüpheli — "Düzelt" denirse hiçbir şey yazılmaz, sıraya da girmez */
+  if(!await dokumaKgOnay(siparisId,kalemIdx,metre,kg,satir?.etiket)){const e=new Error('Kg şüpheli — kayıt yapılmadı.');e.kgIptal=true;throw e;}
   /* İkiz top uyarısı — vazgeçilirse hiçbir şey yazılmaz, sıraya da girmez (M4 YENI: kapı sorar, dokumaGirisEkle'de) */
   const ikiz=uretimKapiMi()?{}:await dokumaIkizOnay(siparisId,kalemIdx,metre,kg,adet);
   if(ikiz===null){const e=new Error('İkiz top uyarısı — kayıt yapılmadı.');e.ikizIptal=true;throw e;}
@@ -4748,7 +4790,8 @@ async function gkKaydet(siparisId,kalemIdx){
     _vgCache=null;_ddCacheTs=0;
     setTimeout(()=>mEl?.focus(),50);
   }catch(e){
-    showToast(e&&e.ikizIptal?'Kayıt yapılmadı — aynı kaleme aynı top az önce girilmiş':'❌ Kaydedilemedi: '+(e.message||e),3600);
+    if(e&&e.kgIptal){showToast('Kayıt yapılmadı — kg\'yi düzeltip yeniden kaydedin',3600);setTimeout(()=>iEl?.focus(),80);}
+    else showToast(e&&e.ikizIptal?'Kayıt yapılmadı — aynı kaleme aynı top az önce girilmiş':'❌ Kaydedilemedi: '+(e.message||e),3600);
   }finally{
     if(btn){btn.disabled=false;btn.textContent=eski||'Kaydet';}
     if(mEl)mEl.disabled=false;
@@ -5008,6 +5051,8 @@ async function vgDuzenleKaydet(btn,gid){
     return;
   }
   const yeni={metre,kg:r.birimTip==='KG'?ikinci:0,adet:r.birimTip==='ADET'?Math.round(ikinci):(r.birimTip3?Math.round(ucuncu):0)};
+  /* Kg şüpheli (11.11.2026, ORTAK kural) — "Düzelt" denirse düzeltme yazılmaz, kutular açık kalır */
+  if(!await dokumaKgOnay(r.siparisId,r.kalemIdx,yeni.metre,yeni.kg,r.etiket)){document.getElementById('vg-i-'+gid)?.focus();return;}
   const eskiTxt=btn.textContent;
   btn.disabled=true;btn.textContent='…';
   try{
@@ -5362,7 +5407,8 @@ async function tzGkKaydet(siparisId,kalemIdx){
     _vgCache=null;_ddCacheTs=0;
     setTimeout(()=>mEl?.focus(),50);
   }catch(e){
-    showToast(e&&e.ikizIptal?'Kayıt yapılmadı — aynı kaleme aynı top az önce girilmiş':'❌ Kaydedilemedi: '+(e.message||e),3600);
+    if(e&&e.kgIptal){showToast('Kayıt yapılmadı — kg\'yi düzeltip yeniden kaydedin',3600);setTimeout(()=>iEl?.focus(),80);}
+    else showToast(e&&e.ikizIptal?'Kayıt yapılmadı — aynı kaleme aynı top az önce girilmiş':'❌ Kaydedilemedi: '+(e.message||e),3600);
   }finally{
     if(btn){btn.disabled=false;btn.textContent=eski||'Kaydet';}
     if(mEl)mEl.disabled=false;
@@ -6261,8 +6307,8 @@ window.kioskUyandi=karsilamaGoster;
    surum.json yalnız bu sayfadan YENİ damgalıysa dinlenir (zaman > PANEL_ZAMAN): html yüklenip surum.json
    unutulunca eski surum.json tableti boştayken 10 dk'da bir boşuna yeniden yüklüyordu. Aynı hedef için
    denemeler seyrekleşir (10 dk, 20, 40 … en çok 6 saat) — yeniden yükleme döngüsü üretimi durdurmasın. */
-const PANEL_SURUM='20261111-e9e5f3cf';
-const PANEL_ZAMAN=1794377839;
+const PANEL_SURUM='20261111-07a9f3dc';
+const PANEL_ZAMAN=1794399678;
 /** Hangi sayfanın açık olduğu tabletten okunabilsin (karşılama sayfasının altında). */
 function panelSurumYazisi(){
   const t=new Date(document.lastModified||'');
